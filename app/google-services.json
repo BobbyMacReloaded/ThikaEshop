@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "208033205986",
+    "project_id": "thika-varsity",
+    "storage_bucket": "thika-varsity.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:208033205986:android:c217294bc61a12297098bb",
+        "android_client_info": {
+          "package_name": "com.example.thikaeshop"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA6hJIBjHM3lZYdjB2OOd7ar5HKxwm0YSQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
