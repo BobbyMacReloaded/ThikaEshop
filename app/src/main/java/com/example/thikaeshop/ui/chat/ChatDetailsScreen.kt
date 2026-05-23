@@ -77,18 +77,34 @@ fun ChatDetailScreen(
                 contentPadding = PaddingValues(16.dp),
                 reverseLayout = true
             ) {
-                items(messages.reversed()) { message ->
+                items(messages) { message ->
                     ChatBubble(message = message)
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                if (uiState is ChatUiState.Loading && messages.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(color = EShopColors.Orange)
+                when {
+                    uiState is ChatUiState.Loading && messages.isEmpty() -> {
+                        item {
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(color = EShopColors.Orange)
+                            }
+                        }
+                    }
+                    uiState is ChatUiState.Error && messages.isEmpty() -> {
+                        item {
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = (uiState as ChatUiState.Error).message,
+                                    color = EShopColors.Error,
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                            }
                         }
                     }
                 }

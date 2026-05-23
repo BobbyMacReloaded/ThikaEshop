@@ -21,11 +21,13 @@ import com.example.thikaeshop.ui.components.BottomNavBar
 import com.example.thikaeshop.ui.market_place.MarketplaceScreen
 import com.example.thikaeshop.ui.ordertracking.OrderTrackingScreen
 import com.example.thikaeshop.ui.orders.OrdersScreen
+import com.example.thikaeshop.ui.pindrop.PinDropScreen
 import com.example.thikaeshop.ui.productDetails.ProductDetailScreen
 import com.example.thikaeshop.ui.profile.EditProfileScreen
 import com.example.thikaeshop.ui.profile.ProfileScreen
 import com.example.thikaeshop.ui.rating.RatingScreen
 import com.example.thikaeshop.ui.second_hand.StudentExchangeScreen
+import com.example.thikaeshop.ui.sell.SellScreen
 import com.example.thikaeshop.ui.theme.ThikaEshopTheme
 import com.example.thikaeshop.ui.verification.StudentVerificationScreen
 import com.example.thikaeshop.ui.viewmodels.*
@@ -53,6 +55,7 @@ class MainActivity : ComponentActivity() {
                 var showEditProfile by remember { mutableStateOf(false) }
                 var showOrderTracking by remember { mutableStateOf(false) }
                 var showRating by remember { mutableStateOf(false) }
+                var showSellScreen by remember { mutableStateOf(false) }
                 var selectedOrderId by remember { mutableStateOf("") }
                 var selectedProductName by remember { mutableStateOf("") }
                 var selectedProductIcon by remember { mutableStateOf("") }
@@ -62,8 +65,9 @@ class MainActivity : ComponentActivity() {
                 var selectedChatId by remember { mutableStateOf("") }
                 var selectedChatName by remember { mutableStateOf("") }
                 val coroutineScope = rememberCoroutineScope()
+                var showPinDrop by remember { mutableStateOf(false) }
 
-                // IMPORTANT: Order matters! Check chat screens FIRST
+                // IMPORTANT: Order matters!
                 if (showAdminPanel) {
                     AdminPanelScreen(
                         onBackClick = {
@@ -78,7 +82,14 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
-                // CHECK CHAT SCREENS FIRST - BEFORE product detail
+                else if (showSellScreen) {
+                    SellScreen(
+                        onSubmit = {
+                            showSellScreen = false
+                        },
+                        onBackClick = { showSellScreen = false }
+                    )
+                }
                 else if (showChatList) {
                     ChatListScreen(
                         onBackClick = { showChatList = false },
@@ -86,8 +97,16 @@ class MainActivity : ComponentActivity() {
                             selectedChatId = chatId
                             selectedChatName = name
                             showChatDetail = true
-                            showChatList = false  // Close chat list
+                            showChatList = false
                         }
+                    )
+                }
+                else if (showPinDrop) {
+                    PinDropScreen(
+                        onLocationSelected = { lat, lng, landmark ->
+                            showPinDrop = false
+                        },
+                        onBackClick = { showPinDrop = false }
                     )
                 }
                 else if (showChatDetail) {
@@ -96,11 +115,10 @@ class MainActivity : ComponentActivity() {
                         receiverName = selectedChatName,
                         onBackClick = {
                             showChatDetail = false
-                            showChatList = true  // Go back to chat list
+                            showChatList = true
                         }
                     )
                 }
-                // THEN check product detail
                 else if (selectedProductId != null) {
                     ProductDetailScreen(
                         productId = selectedProductId!!,
@@ -116,7 +134,6 @@ class MainActivity : ComponentActivity() {
                                         showChatDetail = true
                                         selectedProductId = null
                                     } else {
-                                        // Show error message to user
                                         Log.e("MainActivity", "Failed to create chat")
                                     }
                                 } catch (e: Exception) {
@@ -165,16 +182,24 @@ class MainActivity : ComponentActivity() {
                                         onProductClick = { productId ->
                                             selectedProductId = productId
                                         },
-                                        onSellClick = { },
-                                        onPinDropClick = { },
+                                        onSellClick = { showSellScreen = true },
+                                        onPinDropClick = { showPinDrop = true },
                                         onCategoryClick = { },
                                         onChatClick = { showChatList = true },
                                         onChatWithSeller = { sellerId, sellerName ->
                                             coroutineScope.launch {
-                                                val chatId = ChatHelper.getOrCreateChat(sellerId, sellerName)
-                                                selectedChatId = chatId
-                                                selectedChatName = sellerName
-                                                showChatDetail = true
+                                                try {
+                                                    val chatId = ChatHelper.getOrCreateChat(sellerId, sellerName)
+                                                    if (chatId.isNotEmpty()) {
+                                                        selectedChatId = chatId
+                                                        selectedChatName = sellerName
+                                                        showChatDetail = true
+                                                    } else {
+                                                        Log.e("MainActivity", "Could not create chat with seller $sellerId")
+                                                    }
+                                                } catch (e: Exception) {
+                                                    Log.e("MainActivity", "onChatWithSeller error: ${e.message}")
+                                                }
                                             }
                                         },
                                         viewModel = homeViewModel
@@ -184,7 +209,7 @@ class MainActivity : ComponentActivity() {
                                         onProductClick = { productId ->
                                             selectedProductId = productId
                                         },
-                                        onSellClick = { }
+                                        onSellClick = { showSellScreen = true }
                                     )
                                     2 -> MarketplaceScreen(
                                         onBackClick = { selectedTab = 0 },

@@ -95,6 +95,9 @@ class LoginViewModel : ViewModel() {
 
         val credential = PhoneAuthProvider.getCredential(verificationId, otpCode)
         signInWithPhoneAuthCredential(credential)
+        // In LoginViewModel.kt, inside verifyOtp function after successful login
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        Log.d("FIREBASE_UID", "User ID: ${currentUser?.uid}")
     }
 
     private fun signInWithPhoneAuthCredential(credential: PhoneAuthCredential) {

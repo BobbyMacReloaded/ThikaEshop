@@ -1,10 +1,14 @@
 package com.example.thikaeshop.ui.sell
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -12,33 +16,60 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.example.thikaeshop.ui.theme.EShopColors
+import com.example.thikaeshop.ui.viewmodels.SellUiState
+import com.example.thikaeshop.ui.viewmodels.SellViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SellScreen(
-    onSubmit: (SellItem) -> Unit = {},
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onSubmit: () -> Unit = {},
+    viewModel: SellViewModel = viewModel()
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf("New Goods") }
+    var selectedCategory by remember { mutableStateOf("Electronics") }
+    var isSecondHand by remember { mutableStateOf(false) }
     var selectedCondition by remember { mutableStateOf("Like New") }
     var location by remember { mutableStateOf("") }
-    var showCategoryDropdown by remember { mutableStateOf(false) }
-    var showConditionDropdown by remember { mutableStateOf(false) }
+    var landmark by remember { mutableStateOf("") }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
 
-    val categories = listOf("New Goods", "Student Exchange")
+    val uiState by viewModel.uiState.collectAsState()
+
+    val categories = listOf("Textbooks", "Electronics", "Fashion", "Household", "Food")
     val conditions = listOf("New", "Like New", "Good", "Fair")
+
+    // Image picker launcher
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        selectedImageUri = uri
+    }
+
+    // Handle success
+    LaunchedEffect(uiState) {
+        if (uiState is SellUiState.Success) {
+            onSubmit()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -46,7 +77,7 @@ fun SellScreen(
                 title = { Text("Sell Item", color = EShopColors.White) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EShopColors.White)
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = EShopColors.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -58,38 +89,46 @@ fun SellScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Brush.verticalGradient(listOf(EShopColors.DarkBg, EShopColors.LightBg)))
+                .background(Brush.verticalGradient(listOf(EShopColors.DarkBg, EShopColors.DarkCard)))
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
             // Image Upload Section
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { imagePickerLauncher.launch("image/*") },
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = EShopColors.White10)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        Icons.Default.AddPhotoAlternate,
-                        contentDescription = "Add Photos",
-                        tint = EShopColors.Gold,
-                        modifier = Modifier.size(48.dp)
+                if (selectedImageUri != null) {
+                    // Show selected image
+                    AsyncImage(
+                        model = selectedImageUri,
+                        contentDescription = "Product image",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .clip(RoundedCornerShape(16.dp)),
+                        contentScale = ContentScale.Crop
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Tap to add photos",
-                        fontSize = 14.sp,
-                        color = EShopColors.White50
-                    )
-                    Text(
-                        text = "Upload up to 5 images",
-                        fontSize = 10.sp,
-                        color = EShopColors.White30
-                    )
+                } else {
+                    // Show upload prompt
+                    Column(
+                        modifier = Modifier.padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            Icons.Default.AddPhotoAlternate,
+                            contentDescription = "Add Photos",
+                            tint = EShopColors.Gold,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Tap to add product photo", fontSize = 14.sp, color = EShopColors.White50)
+                        Text("Upload high-quality images", fontSize = 11.sp, color = EShopColors.White30)
+                    }
                 }
             }
 
@@ -118,9 +157,8 @@ fun SellScreen(
                 onValueChange = { description = it },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Description", color = EShopColors.White50) },
-                placeholder = { Text("Describe your item condition, features, etc.", color = EShopColors.White50) },
+                placeholder = { Text("Describe your item...", color = EShopColors.White50) },
                 minLines = 3,
-                maxLines = 5,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = EShopColors.Orange,
                     unfocusedBorderColor = EShopColors.White30,
@@ -151,41 +189,35 @@ fun SellScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             // Category Dropdown
-            Text(
-                text = "Category",
-                fontSize = 14.sp,
-                color = EShopColors.White50,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
+            Text("Category", fontSize = 14.sp, color = EShopColors.White50)
+            Spacer(modifier = Modifier.height(4.dp))
 
+            var expandedCategory by remember { mutableStateOf(false) }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { showCategoryDropdown = !showCategoryDropdown }
+                    .clickable { expandedCategory = true }
                     .background(EShopColors.White10, RoundedCornerShape(12.dp))
                     .padding(16.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(selectedCategory, color = EShopColors.White)
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = EShopColors.White50)
+                    Icon(Icons.Default.ArrowDropDown, null, tint = EShopColors.White50)
                 }
             }
-
             DropdownMenu(
-                expanded = showCategoryDropdown,
-                onDismissRequest = { showCategoryDropdown = false },
-                modifier = Modifier.fillMaxWidth(0.9f)
+                expanded = expandedCategory,
+                onDismissRequest = { expandedCategory = false }
             ) {
                 categories.forEach { category ->
                     DropdownMenuItem(
                         text = { Text(category) },
                         onClick = {
                             selectedCategory = category
-                            showCategoryDropdown = false
+                            expandedCategory = false
                         }
                     )
                 }
@@ -193,58 +225,84 @@ fun SellScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Condition (only show for Student Exchange/Second-hand)
-            if (selectedCategory == "Student Exchange") {
-                Text(
-                    text = "Condition",
-                    fontSize = 14.sp,
-                    color = EShopColors.White50,
-                    modifier = Modifier.padding(bottom = 4.dp)
+            // Second-hand Toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Student Exchange (Second-hand)", color = EShopColors.White50)
+                Switch(
+                    checked = isSecondHand,
+                    onCheckedChange = { isSecondHand = it },
+                    colors = SwitchDefaults.colors(checkedThumbColor = EShopColors.Orange)
                 )
+            }
 
+            // Condition (if second-hand)
+            if (isSecondHand) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("Condition", fontSize = 14.sp, color = EShopColors.White50)
+                Spacer(modifier = Modifier.height(4.dp))
+
+                var expandedCondition by remember { mutableStateOf(false) }
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showConditionDropdown = !showConditionDropdown }
+                        .clickable { expandedCondition = true }
                         .background(EShopColors.White10, RoundedCornerShape(12.dp))
                         .padding(16.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(selectedCondition, color = EShopColors.White)
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = EShopColors.White50)
+                        Icon(Icons.Default.ArrowDropDown, null, tint = EShopColors.White50)
                     }
                 }
-
                 DropdownMenu(
-                    expanded = showConditionDropdown,
-                    onDismissRequest = { showConditionDropdown = false }
+                    expanded = expandedCondition,
+                    onDismissRequest = { expandedCondition = false }
                 ) {
                     conditions.forEach { condition ->
                         DropdownMenuItem(
                             text = { Text(condition) },
                             onClick = {
                                 selectedCondition = condition
-                                showConditionDropdown = false
+                                expandedCondition = false
                             }
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Location
             OutlinedTextField(
                 value = location,
                 onValueChange = { location = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Location (Thika Area)", color = EShopColors.White50) },
-                placeholder = { Text("e.g., Landless, near Blue Water Tank", color = EShopColors.White50) },
-                leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = EShopColors.Gold) },
+                label = { Text("Location (Area)", color = EShopColors.White50) },
+                placeholder = { Text("e.g., Landless, Kiganjo, Kiandutu", color = EShopColors.White50) },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = EShopColors.Orange,
+                    unfocusedBorderColor = EShopColors.White30,
+                    focusedTextColor = EShopColors.White,
+                    unfocusedTextColor = EShopColors.White
+                )
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Landmark
+            OutlinedTextField(
+                value = landmark,
+                onValueChange = { landmark = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Landmark", color = EShopColors.White50) },
+                placeholder = { Text("e.g., Near Blue Water Tank", color = EShopColors.White50) },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = EShopColors.Orange,
                     unfocusedBorderColor = EShopColors.White30,
@@ -258,16 +316,20 @@ fun SellScreen(
             // Submit Button
             Button(
                 onClick = {
-                    if (title.isNotBlank() && price.isNotBlank()) {
-                        val item = SellItem(
-                            title = title,
-                            description = description,
-                            price = price.toIntOrNull() ?: 0,
-                            category = selectedCategory,
-                            condition = if (selectedCategory == "Student Exchange") selectedCondition else null,
-                            location = location
-                        )
-                        onSubmit(item)
+                    if (selectedImageUri != null && title.isNotBlank() && price.isNotBlank()) {
+                        coroutineScope.launch {
+                            viewModel.uploadProduct(
+                                title = title,
+                                description = description,
+                                price = price.toIntOrNull() ?: 0,
+                                category = selectedCategory,
+                                isSecondHand = isSecondHand,
+                                condition = if (isSecondHand) selectedCondition else "",
+                                location = location,
+                                landmark = landmark,
+                                imageUri = selectedImageUri!!
+                            )
+                        }
                     }
                 },
                 modifier = Modifier
@@ -275,52 +337,39 @@ fun SellScreen(
                     .height(52.dp),
                 shape = RoundedCornerShape(26.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = EShopColors.Orange),
-                enabled = title.isNotBlank() && price.isNotBlank()
+                enabled = selectedImageUri != null && title.isNotBlank() && price.isNotBlank() && uiState !is SellUiState.Loading
             ) {
-                Text(
-                    text = "Post Listing",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = EShopColors.White
-                )
+                when (uiState) {
+                    is SellUiState.Loading -> {
+                        CircularProgressIndicator(color = EShopColors.White, modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Uploading...", color = EShopColors.White)
+                    }
+                    is SellUiState.Success -> {
+                        Icon(Icons.Default.CheckCircle, null, tint = EShopColors.White)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Posted Successfully!", color = EShopColors.White)
+                    }
+                    else -> {
+                        Text("Post Listing", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = EShopColors.White)
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Info Note
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = EShopColors.White10)
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.Info, contentDescription = null, tint = EShopColors.Gold, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "For Student Exchange items, payment is held in escrow until buyer confirms receipt",
-                        fontSize = 11.sp,
-                        color = EShopColors.White50
-                    )
-                }
+            // Error message
+            if (uiState is SellUiState.Error) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = (uiState as SellUiState.Error).message,
+                    fontSize = 12.sp,
+                    color = EShopColors.Error
+                )
             }
 
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
-
-// Data class for sell item
-data class SellItem(
-    val title: String,
-    val description: String,
-    val price: Int,
-    val category: String,
-    val condition: String? = null,
-    val location: String
-)
 
 @Preview(showBackground = true)
 @Composable

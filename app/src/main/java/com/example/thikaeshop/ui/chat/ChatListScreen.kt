@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Search
@@ -26,6 +28,7 @@ import com.example.thikaeshop.data.models.ChatRoom
 import com.example.thikaeshop.ui.theme.EShopColors
 import com.example.thikaeshop.ui.viewmodels.ChatUiState
 import com.example.thikaeshop.ui.viewmodels.ChatViewModel
+import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -57,7 +60,7 @@ fun ChatListScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = EShopColors.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EShopColors.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -92,7 +95,7 @@ fun ChatListScreen(
             )
 
             when (uiState) {
-                is ChatUiState.Loading -> {
+                is ChatUiState.Loading, is ChatUiState.Idle -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -109,11 +112,13 @@ fun ChatListScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(chats) { chat ->
+                                val currentUid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+                                val otherUserId = chat.participants.firstOrNull { it != currentUid } ?: ""
                                 ChatRoomCard(
                                     chat = chat,
                                     onClick = {
-                                        // Get other user name - you'll need to fetch it
-                                        onChatClick(chat.chatId, "User")
+                                        // Pass otherUserId as the name placeholder; resolved in MainActivity
+                                        onChatClick(chat.chatId, otherUserId)
                                     }
                                 )
                             }
@@ -147,7 +152,7 @@ fun EmptyChatState() {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Default.Chat, contentDescription = null, tint = EShopColors.White30, modifier = Modifier.size(64.dp))
+            Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, tint = EShopColors.White30, modifier = Modifier.size(64.dp))
             Spacer(modifier = Modifier.height(16.dp))
             Text("No messages yet", fontSize = 16.sp, color = EShopColors.White50)
             Text("Start a conversation with a seller", fontSize = 12.sp, color = EShopColors.White30)

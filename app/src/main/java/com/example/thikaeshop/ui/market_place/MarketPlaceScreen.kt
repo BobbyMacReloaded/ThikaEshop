@@ -20,93 +20,42 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.thikaeshop.data.models.Product
 import com.example.thikaeshop.ui.components.SearchBar
 import com.example.thikaeshop.ui.components.cards.ProductCard
 import com.example.thikaeshop.ui.theme.EShopColors
-import com.example.thikaeshop.data.models.Products
-
-// Sample products list
-val sampleProducts = listOf(
-    Products(
-        id = "1",
-        title = "Programming Textbook - Kotlin",
-        price = 450,
-        originalPrice = 1200,
-        description = "Like new condition. No highlights or marks.",
-        icon = "📚",
-        sellerId = "seller_001",
-        sellerName = "John Kimani",
-        sellerIcon = "👨‍🎓",
-        sellerRating = 4.8,
-        sellerReviews = 23,
-        location = "Landless, Thika",
-        landmark = "Near Blue Water Tank",
-        condition = "Like New",
-        isSecondHand = true
-    ),
-    Products(
-        id = "2",
-        title = "Fresh Vegetables",
-        price = 250,
-        originalPrice = null,
-        description = "Fresh from local farm",
-        icon = "🥬",
-        sellerId = "seller_002",
-        sellerName = "Local Vendor",
-        sellerIcon = "🛒",
-        sellerRating = 4.5,
-        sellerReviews = 12,
-        location = "Kiandutu, Thika",
-        landmark = "Next to Shop",
-        condition = null,
-        isSecondHand = false
-    ),
-    Products(
-        id = "3",
-        title = "Bed Sheet Set",
-        price = 1800,
-        originalPrice = 3000,
-        description = "Single size, good condition",
-        icon = "🛏️",
-        sellerId = "seller_003",
-        sellerName = "Peter Otieno",
-        sellerIcon = "👨‍🎓",
-        sellerRating = 4.3,
-        sellerReviews = 8,
-        location = "Landless, Thika",
-        landmark = "Behind Hostel",
-        condition = "Good",
-        isSecondHand = true
-    )
-)
+import com.example.thikaeshop.ui.viewmodels.HomeUiState
+import com.example.thikaeshop.ui.viewmodels.HomeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MarketplaceScreen(
     onBackClick: () -> Unit = {},
-    onProductClick: (String) -> Unit = {}
+    onProductClick: (String) -> Unit = {},
+    viewModel: HomeViewModel = viewModel()
 ) {
     var searchText by remember { mutableStateOf(TextFieldValue("")) }
     var selectedCategory by remember { mutableStateOf("All") }
     var showFilterDialog by remember { mutableStateOf(false) }
+    val uiState by viewModel.uiState.collectAsState()
 
-    // Get all products (for marketplace - show both new and second-hand or just new goods)
-    val allProducts = sampleProducts
+    val categories = listOf("All", "Food", "Electronics", "Household", "Fashion", "Textbooks")
 
-    // Filter products based on search and category
-    val filteredProducts = allProducts.filter { product ->
+    // Filter to show only NEW GOODS (not second-hand) for Marketplace
+    val newGoodsOnly = when (uiState) {
+        is HomeUiState.Success -> (uiState as HomeUiState.Success).products.filter { !it.isSecondHand }
+        else -> emptyList()
+    }
+
+    // Further filter by search and category
+    val filteredProducts = newGoodsOnly.filter { product ->
         val matchesSearch = searchText.text.isEmpty() ||
                 product.title.contains(searchText.text, ignoreCase = true) ||
                 product.description.contains(searchText.text, ignoreCase = true)
-        val matchesCategory = selectedCategory == "All" ||
-                (selectedCategory == "Food" && product.icon == "🥬") ||
-                (selectedCategory == "Electronics" && product.icon == "📱") ||
-                (selectedCategory == "Household" && product.icon == "🛏️") ||
-                (selectedCategory == "Fashion")
+        val matchesCategory = selectedCategory == "All" || product.category == selectedCategory
         matchesSearch && matchesCategory
     }
-
-    val categories = listOf("All", "Food", "Electronics", "Household", "Fashion")
 
     Scaffold(
         topBar = {
@@ -135,76 +84,106 @@ fun MarketplaceScreen(
             )
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Brush.verticalGradient(listOf(EShopColors.DarkBg, EShopColors.DarkCard)))
-                .padding(paddingValues)
-        ) {
-            // Search Bar
-            SearchBar(
-                value = searchText,
-                onValueChange = { searchText = it },
-                placeholder = "Search new goods...",
-                modifier = Modifier.padding(16.dp)
-            )
-
-            // Category Chips
-            LazyRow(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(categories) { category ->
-                    FilterChip(
-                        selected = selectedCategory == category,
-                        onClick = { selectedCategory = category },
-                        label = { Text(category, fontSize = 12.sp) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = EShopColors.Orange,
-                            containerColor = EShopColors.White10,
-                            selectedLabelColor = EShopColors.White,
-                            labelColor = EShopColors.White50
-                        )
-                    )
+        when (uiState) {
+            is HomeUiState.Loading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = EShopColors.Orange)
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Products Grid
-            if (filteredProducts.isEmpty()) {
+            is HomeUiState.Error -> {
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🛍️", fontSize = 64.sp)
+                        Text("Error: ${(uiState as HomeUiState.Error).message}", color = EShopColors.Error)
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "No products found",
-                            fontSize = 16.sp,
-                            color = EShopColors.White50
-                        )
-                        Text(
-                            text = "Try adjusting your search",
-                            fontSize = 12.sp,
-                            color = EShopColors.White30
-                        )
+                        Button(onClick = { viewModel.loadProducts() }) {
+                            Text("Retry")
+                        }
                     }
                 }
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+            }
+            is HomeUiState.Success -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Brush.verticalGradient(listOf(EShopColors.DarkBg, EShopColors.DarkCard)))
+                        .padding(paddingValues)
                 ) {
-                    items(filteredProducts) { product ->
-                        ProductCard(
-                            product = product,
-                            onClick = { onProductClick(product.id) }
-                        )
+                    // Search Bar
+                    SearchBar(
+                        value = searchText,
+                        onValueChange = { searchText = it },
+                        placeholder = "Search new goods...",
+                        modifier = Modifier.padding(16.dp)
+                    )
+
+                    // Category Chips
+                    LazyRow(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(categories) { category ->
+                            FilterChip(
+                                selected = selectedCategory == category,
+                                onClick = { selectedCategory = category },
+                                label = { Text(category, fontSize = 12.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = EShopColors.Orange,
+                                    containerColor = EShopColors.White10,
+                                    selectedLabelColor = EShopColors.White,
+                                    labelColor = EShopColors.White50
+                                )
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Products Grid
+                    if (filteredProducts.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("🛍️", fontSize = 64.sp)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "No products found",
+                                    fontSize = 16.sp,
+                                    color = EShopColors.White50
+                                )
+                                Text(
+                                    text = "Try adjusting your search",
+                                    fontSize = 12.sp,
+                                    color = EShopColors.White30
+                                )
+                            }
+                        }
+                    } else {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(filteredProducts) { product ->
+                                ProductCard(
+                                    product = product,
+                                    onClick = { onProductClick(product.id) }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -221,7 +200,6 @@ fun MarketplaceScreen(
                     listOf("All Prices", "Under KSh 500", "KSh 500 - 2000", "Above KSh 2000").forEach { range ->
                         TextButton(
                             onClick = {
-                                // Apply price filter
                                 showFilterDialog = false
                             },
                             modifier = Modifier.fillMaxWidth()

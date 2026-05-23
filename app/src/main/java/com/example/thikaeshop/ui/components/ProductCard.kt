@@ -22,12 +22,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.thikaeshop.data.models.Products
+import com.example.thikaeshop.data.models.Product
 import com.example.thikaeshop.ui.theme.EShopColors
 
 @Composable
 fun ProductCard(
-    product: Products,
+    product: Product,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -68,7 +68,7 @@ fun ProductCard(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(product.icon, fontSize = 56.sp)
+                Text(product.imageUrl, fontSize = 56.sp)
 
                 // Second-hand badge
                 if (product.isSecondHand) {

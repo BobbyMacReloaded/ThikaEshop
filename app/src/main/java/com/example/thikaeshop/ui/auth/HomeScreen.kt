@@ -84,7 +84,7 @@ fun HomeScreen(
 
     if (showSellScreen) {
         SellScreen(
-            onSubmit = { item ->
+            onSubmit = {
                 showSellScreen = false
             },
             onBackClick = { showSellScreen = false }
