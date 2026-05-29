@@ -2,7 +2,7 @@ package com.example.thikaeshop.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.delay
+import com.example.thikaeshop.data.repository.ProductRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -16,6 +16,8 @@ sealed class EditProfileUiState {
 
 class EditProfileViewModel : ViewModel() {
 
+    private val repository = ProductRepository()
+
     private val _uiState = MutableStateFlow<EditProfileUiState>(EditProfileUiState.Idle)
     val uiState: StateFlow<EditProfileUiState> = _uiState
 
@@ -23,12 +25,13 @@ class EditProfileViewModel : ViewModel() {
         name: String,
         email: String,
         phoneNumber: String,
-        studentId: String
+        studentId: String,
+        onSuccess: () -> Unit
     ) {
         viewModelScope.launch {
             _uiState.value = EditProfileUiState.Loading
-            delay(1500) // Simulate API call
 
+            // Validation
             if (name.isBlank() || email.isBlank() || phoneNumber.isBlank()) {
                 _uiState.value = EditProfileUiState.Error("Please fill all required fields")
                 return@launch
@@ -39,8 +42,19 @@ class EditProfileViewModel : ViewModel() {
                 return@launch
             }
 
-            // Success - profile updated
-            _uiState.value = EditProfileUiState.Success("Profile updated successfully!")
+            try {
+                // Update profile in Supabase
+                repository.updateUserProfile(
+                    userId = repository.currentUserId,
+                    name = name,
+                    email = email,
+                    phone = phoneNumber
+                )
+                _uiState.value = EditProfileUiState.Success("Profile updated successfully!")
+                onSuccess()
+            } catch (e: Exception) {
+                _uiState.value = EditProfileUiState.Error(e.message ?: "Failed to update profile")
+            }
         }
     }
 }

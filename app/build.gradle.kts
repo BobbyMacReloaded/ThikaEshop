@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.gms.google.services)
+    alias(libs.plugins.kotlin.serialization)
+
 }
 
 android {
@@ -76,6 +78,7 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:auth-kt")
     implementation("io.github.jan-tennert.supabase:realtime-kt")
     implementation("io.ktor:ktor-client-android:3.5.0")
+    implementation(libs.kotlinx.serialization.json)
 
 
 }

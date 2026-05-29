@@ -1,4 +1,4 @@
-package com.example.thikaeshop.ui.components.cards
+package com.example.thikaeshop.ui.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.ImageNotSupported
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -18,10 +19,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.SubcomposeAsyncImage
 import com.example.thikaeshop.data.models.Product
 import com.example.thikaeshop.ui.theme.EShopColors
 
@@ -52,10 +55,9 @@ fun ProductCard(
             contentColor = EShopColors.White
         )
     ) {
-        Column(
-            modifier = Modifier.padding(12.dp)
-        ) {
-            // Product Image with Gradient Overlay
+        Column(modifier = Modifier.padding(12.dp)) {
+
+            // Product Image
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -68,13 +70,51 @@ fun ProductCard(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(product.imageUrl, fontSize = 56.sp)
+                SubcomposeAsyncImage(
+                    model = product.imageUrl,
+                    contentDescription = product.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                    loading = {
+                        // Orange placeholder while loading
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(EShopColors.OrangeLight, EShopColors.Orange)
+                                    )
+                                )
+                        )
+                    },
+                    error = {
+                        // Show icon if image fails to load
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(EShopColors.OrangeLight, EShopColors.Orange)
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.ImageNotSupported,
+                                contentDescription = "No image",
+                                tint = EShopColors.White,
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+                    }
+                )
 
-                // Second-hand badge
+                // Second-hand badge on top of image
                 if (product.isSecondHand) {
-                    androidx.compose.foundation.layout.Box(
+                    Box(
                         modifier = Modifier
                             .align(Alignment.TopStart)
+                            .padding(4.dp)
                             .background(EShopColors.Gold, RoundedCornerShape(8.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
@@ -90,7 +130,6 @@ fun ProductCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Title
             Text(
                 text = product.title,
                 fontSize = 14.sp,
@@ -100,9 +139,8 @@ fun ProductCard(
                 overflow = TextOverflow.Ellipsis
             )
 
-            // Description
             Text(
-                text = product.description,
+                text = product.description ?: "",
                 fontSize = 11.sp,
                 color = EShopColors.White60,
                 maxLines = 1,
@@ -111,7 +149,6 @@ fun ProductCard(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Price and Like
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

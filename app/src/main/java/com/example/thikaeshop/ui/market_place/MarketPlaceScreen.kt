@@ -22,8 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.thikaeshop.data.models.Product
+import com.example.thikaeshop.ui.components.ProductCard
 import com.example.thikaeshop.ui.components.SearchBar
-import com.example.thikaeshop.ui.components.cards.ProductCard
 import com.example.thikaeshop.ui.theme.EShopColors
 import com.example.thikaeshop.ui.viewmodels.HomeUiState
 import com.example.thikaeshop.ui.viewmodels.HomeViewModel

@@ -261,6 +261,7 @@ class MainActivity : ComponentActivity() {
                                                     selectedTab = 0
                                                 },
                                                 onVerificationClick = { showVerification = true },
+                                                onSellClick = { showSellScreen = true },  // ← ADD THIS
                                                 onEditProfileClick = { showEditProfile = true }
                                             )
                                         }

@@ -3,16 +3,8 @@ package com.example.thikaeshop.ui.auth
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -23,25 +15,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FabPosition
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -49,11 +24,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.thikaeshop.ui.components.SearchBar
-import com.example.thikaeshop.ui.components.cards.ProductCard
+import com.example.thikaeshop.ui.components.ProductCard
 import com.example.thikaeshop.ui.productDetails.ProductDetailScreen
 import com.example.thikaeshop.ui.sell.SellScreen
 import com.example.thikaeshop.ui.theme.EShopColors
@@ -68,7 +42,7 @@ fun HomeScreen(
     onPinDropClick: () -> Unit = {},
     onCategoryClick: (String) -> Unit = {},
     onChatClick: () -> Unit = {},
-    onChatWithSeller: (String, String) -> Unit = { _, _ -> },  // ← ADD THIS
+    onChatWithSeller: (String, String) -> Unit = { _, _ -> },
     viewModel: HomeViewModel = HomeViewModel()
 ) {
     var searchText by remember { mutableStateOf(TextFieldValue("")) }
@@ -86,21 +60,20 @@ fun HomeScreen(
         SellScreen(
             onSubmit = {
                 showSellScreen = false
+                viewModel.loadProducts() // ← Refresh products after posting
             },
             onBackClick = { showSellScreen = false }
         )
-    }
-    else if (selectedProductId != null) {
+    } else if (selectedProductId != null) {
         ProductDetailScreen(
             productId = selectedProductId!!,
             onBackClick = { selectedProductId = null },
-            onBuyNowClick = { /* Navigate to checkout */ },
+            onBuyNowClick = { },
             onContactSellerClick = { sellerId, sellerName ->
-                onChatWithSeller(sellerId, sellerName)  // ← FIXED
+                onChatWithSeller(sellerId, sellerName)
             }
         )
-    }
-    else {
+    } else {
         Scaffold(
             floatingActionButton = {
                 FloatingActionButton(
@@ -114,137 +87,227 @@ fun HomeScreen(
             },
             floatingActionButtonPosition = FabPosition.End
         ) { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Brush.verticalGradient(listOf(EShopColors.DarkBg, EShopColors.DarkCard)))
-                    .padding(paddingValues)
-                    .padding(16.dp)
-                    .padding(bottom = 10.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Hello, Student! 👋",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = EShopColors.White
-                        )
-                        Text(
-                            text = "Shop safely in Thika",
-                            fontSize = 12.sp,
-                            color = EShopColors.White50
-                        )
-                    }
-
-                    IconButton(onClick = { }) {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = "Profile",
-                            tint = EShopColors.Gold,
-                            modifier = Modifier.size(28.dp)
-                        )
+            when (uiState) {
+                is HomeUiState.Loading -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(EShopColors.DarkBg),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = EShopColors.Orange)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
-
-                SearchBar(
-                    value = searchText,
-                    onValueChange = { searchText = it },
-                    placeholder = "Search products..."
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                when (uiState) {
-                    is HomeUiState.Loading -> {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = EShopColors.Orange)
+                is HomeUiState.Error -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(EShopColors.DarkBg),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "Error: ${(uiState as HomeUiState.Error).message}",
+                                color = EShopColors.Error
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Button(onClick = { viewModel.loadProducts() }) {
+                                Text("Retry")
+                            }
                         }
                     }
-                    is HomeUiState.Success -> {
-                        val state = uiState as HomeUiState.Success
+                }
 
-                        Text(
-                            text = "Categories",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = EShopColors.White
-                        )
+                is HomeUiState.Success -> {
+                    val state = uiState as HomeUiState.Success
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                    // LazyColumn so the whole screen scrolls together
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(EShopColors.DarkBg, EShopColors.DarkCard)
+                                )
+                            )
+                            .padding(paddingValues)
+                            .padding(horizontal = 16.dp)
+                            .padding(bottom = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        // ── Header ──────────────────────────────────────────────
+                        item {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "Hello, Student! 👋",
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = EShopColors.White
+                                    )
+                                    Text(
+                                        text = "Shop safely in Thika",
+                                        fontSize = 12.sp,
+                                        color = EShopColors.White50
+                                    )
+                                }
+                                IconButton(onClick = { }) {
+                                    Icon(
+                                        Icons.Default.Person,
+                                        contentDescription = "Profile",
+                                        tint = EShopColors.Gold,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(20.dp))
+                        }
 
-                        CategoryRow(onCategoryClick = { category ->
-                            viewModel.filterByCategory(category)
-                        })
+                        // ── Search bar ──────────────────────────────────────────
+                        item {
+                            SearchBar(
+                                value = searchText,
+                                onValueChange = { searchText = it },
+                                placeholder = "Search products..."
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
 
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        // ── Categories ──────────────────────────────────────────
+                        item {
                             Text(
-                                text = "🔥 Featured for You",
+                                text = "Categories",
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = EShopColors.White
                             )
-                            Text(
-                                text = "See All",
-                                fontSize = 12.sp,
-                                color = EShopColors.Orange,
-                                modifier = Modifier.clickable { }
-                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            CategoryRow(onCategoryClick = { category ->
+                                viewModel.filterByCategory(category)
+                            })
+                            Spacer(modifier = Modifier.height(24.dp))
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            items(state.featuredProducts) { product ->
-                                ProductCard(
-                                    product = product,
-                                    onClick = {
-                                        selectedProductId = product.id
+                        // ── Featured row (horizontal) ───────────────────────────
+                        if (state.featuredProducts.isNotEmpty()) {
+                            item {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "🔥 Featured for You",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = EShopColors.White
+                                    )
+                                    Text(
+                                        text = "See All",
+                                        fontSize = 12.sp,
+                                        color = EShopColors.Orange,
+                                        modifier = Modifier.clickable { }
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                    items(state.featuredProducts) { product ->
+                                        ProductCard(
+                                            product = product,
+                                            onClick = { selectedProductId = product.id }
+                                        )
                                     }
+                                }
+                                Spacer(modifier = Modifier.height(24.dp))
+                            }
+                        }
+
+                        // ── Quick actions ───────────────────────────────────────
+                        item {
+                            Text(
+                                text = "Quick Actions",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = EShopColors.White
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            QuickActionsRow(
+                                onSellClick = { showSellScreen = true },
+                                onChatClick = onChatClick
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
+
+                        // ── All products header ─────────────────────────────────
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "All Products",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EShopColors.White
+                                )
+                                Text(
+                                    text = "${state.products.size} items",
+                                    fontSize = 12.sp,
+                                    color = EShopColors.White50
                                 )
                             }
+                            Spacer(modifier = Modifier.height(12.dp))
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        Text(
-                            text = "Quick Actions",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = EShopColors.White
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        QuickActionsRow(
-                            onSellClick = { showSellScreen = true },
-                            onChatClick = onChatClick
-                        )
-                    }
-                    is HomeUiState.Error -> {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Error: ${(uiState as HomeUiState.Error).message}", color = EShopColors.Error)
-                                Spacer(Modifier.height(16.dp))
-                                Button(onClick = { viewModel.loadProducts() }) {
-                                    Text("Retry")
+                        // ── All products — 2-column grid ────────────────────────
+                        if (state.products.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(200.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "No products found",
+                                        color = EShopColors.White50,
+                                        fontSize = 14.sp
+                                    )
                                 }
                             }
+                        } else {
+                            // Pair products into rows of 2
+                            val rows = state.products.chunked(2)
+                            items(rows) { row ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    row.forEach { product ->
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            ProductCard(
+                                                product = product,
+                                                onClick = { selectedProductId = product.id }
+                                            )
+                                        }
+                                    }
+                                    // If odd number, fill the second slot with empty space
+                                    if (row.size == 1) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
                         }
+
+                        item { Spacer(modifier = Modifier.height(80.dp)) } // bottom nav clearance
                     }
                 }
             }
@@ -261,10 +324,7 @@ fun CategoryRow(onCategoryClick: (String) -> Unit) {
         "🏠 Household" to "Household",
         "🔄 Second Hand" to "SecondHand"
     )
-
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(categories) { (display, categoryId) ->
             Surface(
                 modifier = Modifier.clickable { onCategoryClick(categoryId) },
@@ -284,10 +344,7 @@ fun CategoryRow(onCategoryClick: (String) -> Unit) {
 }
 
 @Composable
-fun QuickActionsRow(
-    onSellClick: () -> Unit,
-    onChatClick: () -> Unit
-) {
+fun QuickActionsRow(onSellClick: () -> Unit, onChatClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -300,7 +357,6 @@ fun QuickActionsRow(
             color = EShopColors.Orange,
             modifier = Modifier.weight(1f)
         )
-
         QuickActionCard(
             icon = Icons.Default.Receipt,
             title = "My Orders",
@@ -309,7 +365,6 @@ fun QuickActionsRow(
             color = EShopColors.Gold,
             modifier = Modifier.weight(1f)
         )
-
         QuickActionCard(
             icon = Icons.AutoMirrored.Filled.Chat,
             title = "Messages",
@@ -339,35 +394,10 @@ fun QuickActionCard(
             modifier = Modifier.padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                icon,
-                contentDescription = title,
-                tint = color,
-                modifier = Modifier.size(32.dp)
-            )
-
+            Icon(icon, contentDescription = title, tint = color, modifier = Modifier.size(32.dp))
             Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = title,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color = EShopColors.White
-            )
-
-            Text(
-                text = subtitle,
-                fontSize = 9.sp,
-                color = EShopColors.White50
-            )
+            Text(text = title, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = EShopColors.White)
+            Text(text = subtitle, fontSize = 9.sp, color = EShopColors.White50)
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun PreviewHomeScreen() {
-    MaterialTheme {
-        HomeScreen()
     }
 }

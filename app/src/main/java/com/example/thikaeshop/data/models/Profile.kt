@@ -1,26 +1,49 @@
 package com.example.thikaeshop.data.models
 
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 
+@Serializable
 data class UserProfile(
+    @SerialName("id")
     val userId: String = "",
+
+    @SerialName("name")
     val name: String = "",
+
+    @SerialName("email")
     val email: String = "",
+
+    @SerialName("phone")
     val phoneNumber: String = "",
+
+    @SerialName("student_id")
     val studentId: String = "",
+
+    @SerialName("is_verified")
     val isVerified: Boolean = false,
-    val memberSince: String = "",
+
+
+    @SerialName("profile_image_url")
     val profileImageUrl: String = "",
+
+    @SerialName("rating")
     val rating: Double = 0.0,
+
+    @SerialName("total_orders")
     val totalOrders: Int = 0,
+
+    @SerialName("total_spent")
     val totalSpent: Int = 0
 )
 
+// These can stay as is since they're not going to Supabase
 data class ListingItem(
     val id: String,
     val title: String,
     val price: String,
     val icon: String,
-    val status: String  // Active, Sold, Pending
+    val status: String
 )
 
 data class LandmarkItem(
@@ -30,29 +53,3 @@ data class LandmarkItem(
     val timesUsed: String
 )
 
-object SampleProfileData {
-    val userProfile = UserProfile(
-        userId = "user_123",
-        name = "Emmanuel Muriuki",
-        email = "emmanueli@mku.ac.ke",
-        phoneNumber = "+254 711 234 567",
-        studentId = "BIT/2024/61120",
-        isVerified = true,
-        memberSince = "Jan 2024",
-        rating = 4.8,
-        totalOrders = 12,
-        totalSpent = 8450
-    )
-
-    val myListings = listOf(
-        ListingItem("1", "Programming Textbook", "KSh 450", "📚", "Active"),
-        ListingItem("2", "Scientific Calculator", "KSh 800", "📟", "Active"),
-        ListingItem("3", "Bed Sheet Set", "KSh 1800", "🛏️", "Sold")
-    )
-
-    val savedLandmarks = listOf(
-        LandmarkItem("1", "Landless", "Near Blue Water Tank", "Used 5 times"),
-        LandmarkItem("2", "Kiganjo", "Opposite Church", "Used 3 times"),
-        LandmarkItem("3", "Kiandutu", "Next to Shop", "Used 2 times")
-    )
-}

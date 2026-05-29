@@ -83,7 +83,6 @@ fun ProductDetailScreen(
     var quantity by remember { mutableIntStateOf(1) }
     var showCheckout by remember { mutableStateOf(false) }
 
-    // Load product when ID changes
     LaunchedEffect(productId) {
         if (productId.isNotEmpty()) {
             viewModel.loadProduct(productId)
@@ -92,55 +91,38 @@ fun ProductDetailScreen(
 
     if (showCheckout && product != null) {
         CheckoutScreen(
+            productId = product!!.id,
             productName = product!!.title,
             productPrice = product!!.price,
+            productImageUrl = product!!.imageUrl ?: "",
+            sellerId = product!!.sellerId ?: "",
             quantity = quantity,
             isSecondHand = product!!.isSecondHand,
-            onBackClick = {
-                showCheckout = false
-            },
+            onBackClick = { showCheckout = false },
             onOrderPlaced = {
                 showCheckout = false
+                onBuyNowClick()
             }
         )
     } else {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = {
-                        Text(
-                            text = "Product Details",
-                            color = EShopColors.White
-                        )
-                    },
+                    title = { Text("Product Details", color = EShopColors.White) },
                     navigationIcon = {
                         IconButton(onClick = onBackClick) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = EShopColors.White
-                            )
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EShopColors.White)
                         }
                     },
                     actions = {
                         IconButton(onClick = { }) {
-                            Icon(
-                                Icons.Default.FavoriteBorder,
-                                contentDescription = "Wishlist",
-                                tint = EShopColors.White
-                            )
+                            Icon(Icons.Default.FavoriteBorder, contentDescription = "Wishlist", tint = EShopColors.White)
                         }
                         IconButton(onClick = { }) {
-                            Icon(
-                                Icons.Default.Share,
-                                contentDescription = "Share",
-                                tint = EShopColors.White
-                            )
+                            Icon(Icons.Default.Share, contentDescription = "Share", tint = EShopColors.White)
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = EShopColors.DarkBg
-                    )
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = EShopColors.DarkBg)
                 )
             },
             bottomBar = {
@@ -160,22 +142,12 @@ fun ProductDetailScreen(
         ) { paddingValues ->
             when {
                 isLoading -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues),
-                        contentAlignment = Alignment.Center
-                    ) {
+                    Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = EShopColors.Orange)
                     }
                 }
                 error != null -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues),
-                        contentAlignment = Alignment.Center
-                    ) {
+                    Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Error: $error", color = EShopColors.Error)
                             Spacer(modifier = Modifier.height(16.dp))
@@ -189,24 +161,14 @@ fun ProductDetailScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(
-                                        EShopColors.DarkBg,
-                                        EShopColors.DarkCard
-                                    )
-                                )
-                            )
+                            .background(Brush.verticalGradient(listOf(EShopColors.DarkBg, EShopColors.DarkCard)))
                             .verticalScroll(rememberScrollState())
                             .padding(paddingValues)
                             .padding(16.dp)
                     ) {
-                        // Product Image
                         ProductImage(
-                            imageUrl = product!!.imageUrl,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(300.dp)
+                            imageUrl = product!!.imageUrl ?: "",
+                            modifier = Modifier.fillMaxWidth().height(300.dp)
                         )
 
                         if (product!!.isSecondHand) {
@@ -214,19 +176,14 @@ fun ProductDetailScreen(
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = EShopColors.Gold.copy(alpha = 0.15f)
-                                )
+                                colors = CardDefaults.cardColors(containerColor = EShopColors.Gold.copy(alpha = 0.15f))
                             ) {
                                 Text(
                                     text = "🔄 Student Exchange - Second Hand Item",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = EShopColors.Gold,
-                                    modifier = Modifier.padding(
-                                        horizontal = 12.dp,
-                                        vertical = 8.dp
-                                    )
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                                 )
                             }
                         }
@@ -236,189 +193,72 @@ fun ProductDetailScreen(
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = EShopColors.White10
-                            )
+                            colors = CardDefaults.cardColors(containerColor = EShopColors.White10)
                         ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp)
-                            ) {
-                                Text(
-                                    text = product!!.title,
-                                    fontSize = 22.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = EShopColors.White
-                                )
-
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(product!!.title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = EShopColors.White)
                                 Spacer(modifier = Modifier.height(8.dp))
-
-                                Text(
-                                    text = "KSh ${product!!.price}",
-                                    fontSize = 24.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = EShopColors.Gold
-                                )
-
+                                Text("KSh ${product!!.price}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = EShopColors.Gold)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                HorizontalDivider(thickness = DividerDefaults.Thickness, color = EShopColors.White30)
                                 Spacer(modifier = Modifier.height(16.dp))
 
-                                HorizontalDivider(
-                                    thickness = DividerDefaults.Thickness,
-                                    color = EShopColors.White30
-                                )
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                // Condition (for second-hand)
                                 if (product!!.isSecondHand && product!!.condition.isNotBlank()) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            Icons.Default.CheckCircle,
-                                            contentDescription = null,
-                                            tint = EShopColors.Success,
-                                            modifier = Modifier.size(20.dp)
-                                        )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.CheckCircle, tint = EShopColors.Success, modifier = Modifier.size(20.dp), contentDescription = "")
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = "Condition: ${product!!.condition}",
-                                            fontSize = 14.sp,
-                                            color = EShopColors.White
-                                        )
+                                        Text("Condition: ${product!!.condition}", fontSize = 14.sp, color = EShopColors.White)
                                     }
                                     Spacer(modifier = Modifier.height(12.dp))
                                 }
 
-                                // Seller Info
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .clip(CircleShape)
-                                            .background(EShopColors.Orange),
+                                        modifier = Modifier.size(40.dp).clip(CircleShape).background(EShopColors.Orange),
                                         contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = "👤",
-                                            fontSize = 20.sp
-                                        )
-                                    }
-
+                                    ) { Text("👤", fontSize = 20.sp) }
                                     Spacer(modifier = Modifier.width(12.dp))
-
                                     Column {
-                                        Text(
-                                            text = product!!.sellerName,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            color = EShopColors.White
-                                        )
-                                        Text(
-                                            text = "${product!!.sellerRating} ★",
-                                            fontSize = 11.sp,
-                                            color = EShopColors.White50
-                                        )
+                                        Text(product!!.sellerName ?: "", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = EShopColors.White)
+                                        Text("${product!!.sellerRating} ★", fontSize = 11.sp, color = EShopColors.White50)
                                     }
-
                                     Spacer(modifier = Modifier.weight(1f))
-
                                     OutlinedButton(
-                                        onClick = {
-                                            onContactSellerClick(
-                                                product!!.sellerId,
-                                                product!!.sellerName
-                                            )
-                                        },
+                                        onClick = { onContactSellerClick(product!!.sellerId ?: "", product!!.sellerName ?: "") },
                                         shape = RoundedCornerShape(20.dp),
                                         modifier = Modifier.height(32.dp)
                                     ) {
-                                        Icon(
-                                            Icons.AutoMirrored.Filled.Chat,
-                                            contentDescription = "Chat",
-                                            modifier = Modifier.size(16.dp)
-                                        )
+                                        Icon(Icons.AutoMirrored.Filled.Chat, modifier = Modifier.size(16.dp), contentDescription = "")
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = "Chat",
-                                            fontSize = 12.sp
-                                        )
+                                        Text("Chat", fontSize = 12.sp)
                                     }
                                 }
 
                                 Spacer(modifier = Modifier.height(16.dp))
-
-                                HorizontalDivider(
-                                    thickness = DividerDefaults.Thickness,
-                                    color = EShopColors.White30
-                                )
-
+                                HorizontalDivider(thickness = DividerDefaults.Thickness, color = EShopColors.White30)
                                 Spacer(modifier = Modifier.height(16.dp))
 
-                                Text(
-                                    text = "Description",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = EShopColors.White
-                                )
-
+                                Text("Description", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = EShopColors.White)
                                 Spacer(modifier = Modifier.height(8.dp))
-
-                                Text(
-                                    text = product!!.description,
-                                    fontSize = 14.sp,
-                                    color = EShopColors.White50,
-                                    lineHeight = 20.sp
-                                )
-
+                                Text(product!!.description, fontSize = 14.sp, color = EShopColors.White50, lineHeight = 20.sp)
+                                Spacer(modifier = Modifier.height(16.dp))
+                                HorizontalDivider(thickness = DividerDefaults.Thickness, color = EShopColors.White30)
                                 Spacer(modifier = Modifier.height(16.dp))
 
-                                HorizontalDivider(
-                                    thickness = DividerDefaults.Thickness,
-                                    color = EShopColors.White30
-                                )
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Default.LocationOn,
-                                        contentDescription = "Location",
-                                        tint = EShopColors.Gold,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.LocationOn, contentDescription = "", tint = EShopColors.Gold, modifier = Modifier.size(20.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = product!!.location,
-                                        fontSize = 14.sp,
-                                        color = EShopColors.White
-                                    )
+                                    Text(product!!.location, fontSize = 14.sp, color = EShopColors.White)
                                 }
-
                                 if (product!!.landmark.isNotBlank()) {
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Flag,
-                                            contentDescription = "Landmark",
-                                            tint = EShopColors.Gold,
-                                            modifier = Modifier.size(20.dp)
-                                        )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Flag, tint = EShopColors.Gold, modifier = Modifier.size(20.dp), contentDescription = "")
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = "📍 ${product!!.landmark}",
-                                            fontSize = 13.sp,
-                                            color = EShopColors.White50
-                                        )
+                                        Text("📍 ${product!!.landmark}", fontSize = 13.sp, color = EShopColors.White50)
                                     }
                                 }
 
-                                // Escrow info for second-hand
                                 if (product!!.isSecondHand) {
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Card(
@@ -426,22 +266,10 @@ fun ProductDetailScreen(
                                         shape = RoundedCornerShape(12.dp),
                                         colors = CardDefaults.cardColors(containerColor = EShopColors.Gold.copy(alpha = 0.15f))
                                     ) {
-                                        Row(
-                                            modifier = Modifier.padding(12.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Lock,
-                                                contentDescription = null,
-                                                tint = EShopColors.Gold,
-                                                modifier = Modifier.size(20.dp)
-                                            )
+                                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.Lock, tint = EShopColors.Gold, modifier = Modifier.size(20.dp), contentDescription = "")
                                             Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = "✅ Payment held in escrow until you confirm receipt",
-                                                fontSize = 11.sp,
-                                                color = EShopColors.Gold
-                                            )
+                                            Text("✅ Payment held in escrow until you confirm receipt", fontSize = 11.sp, color = EShopColors.Gold)
                                         }
                                     }
                                 }
@@ -463,99 +291,33 @@ fun BottomBar(
     isSecondHand: Boolean
 ) {
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 36.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 36.dp),
         shadowElevation = 8.dp,
         tonalElevation = 0.dp,
         color = EShopColors.DarkBg.copy(alpha = 0.95f)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "Qty:",
-                    color = EShopColors.White50,
-                    fontSize = 14.sp
-                )
-
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Qty:", color = EShopColors.White50, fontSize = 14.sp)
                 IconButton(
-                    onClick = {
-                        if (quantity > 1) {
-                            onQuantityChange(quantity - 1)
-                        }
-                    },
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(EShopColors.White10)
-                ) {
-                    Icon(
-                        Icons.Default.Remove,
-                        contentDescription = "Decrease",
-                        tint = EShopColors.White,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-
-                Text(
-                    text = quantity.toString(),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = EShopColors.White,
-                    modifier = Modifier.width(32.dp),
-                    textAlign = TextAlign.Center
-                )
-
+                    onClick = { if (quantity > 1) onQuantityChange(quantity - 1) },
+                    modifier = Modifier.size(32.dp).clip(CircleShape).background(EShopColors.White10)
+                ) { Icon(Icons.Default.Remove, tint = EShopColors.White, modifier = Modifier.size(16.dp), contentDescription = "") }
+                Text(quantity.toString(), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = EShopColors.White, modifier = Modifier.width(32.dp), textAlign = TextAlign.Center)
                 IconButton(
-                    onClick = {
-                        onQuantityChange(quantity + 1)
-                    },
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(EShopColors.White10)
-                ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Increase",
-                        tint = EShopColors.White,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
+                    onClick = { onQuantityChange(quantity + 1) },
+                    modifier = Modifier.size(32.dp).clip(CircleShape).background(EShopColors.White10)
+                ) { Icon(Icons.Default.Add, tint = EShopColors.White, modifier = Modifier.size(16.dp), contentDescription = "") }
             }
-
-            Column(
-                horizontalAlignment = Alignment.End
-            ) {
-                Text(
-                    text = "Total: KSh ${price * quantity}",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = EShopColors.Gold
-                )
+            Column(horizontalAlignment = Alignment.End) {
+                Text("Total: KSh ${price * quantity}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = EShopColors.Gold)
                 Spacer(modifier = Modifier.height(4.dp))
-                Button(
-                    onClick = onBuyNow,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = EShopColors.Orange
-                    ),
-                    modifier = Modifier.width(120.dp)
-                ) {
-                    Text(
-                        text = "Buy Now",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                Button(onClick = onBuyNow, shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = EShopColors.Orange), modifier = Modifier.width(120.dp)) {
+                    Text("Buy Now", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -565,7 +327,5 @@ fun BottomBar(
 @Preview(showBackground = true)
 @Composable
 fun PreviewProductDetailScreen() {
-    MaterialTheme {
-        ProductDetailScreen()
-    }
+    MaterialTheme { ProductDetailScreen() }
 }

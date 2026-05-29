@@ -6,8 +6,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,7 +37,7 @@ fun OrderTrackingScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
-        viewModel.loadOrderTracking(orderId)
+        viewModel.loadOrder(orderId)
     }
 
     Scaffold(
@@ -51,7 +53,7 @@ fun OrderTrackingScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = EShopColors.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EShopColors.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -261,7 +263,11 @@ fun OrderTrackingScreen(
                                 }
                                 if (item != tracking.items.last()) {
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    Divider(color = EShopColors.White20)
+                                    HorizontalDivider(
+                                        Modifier,
+                                        DividerDefaults.Thickness,
+                                        color = EShopColors.White20
+                                    )
                                     Spacer(modifier = Modifier.height(8.dp))
                                 }
                             }
@@ -304,7 +310,7 @@ fun OrderTrackingScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Error: ${(uiState as OrderTrackingUiState.Error).message}", color = EShopColors.Error)
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadOrderTracking(orderId) }) {
+                        Button(onClick = { viewModel.loadOrder(orderId) }) {
                             Text("Retry")
                         }
                     }

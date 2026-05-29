@@ -7,7 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
@@ -29,10 +29,10 @@ import com.example.thikaeshop.ui.viewmodels.EditProfileViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileScreen(
-    currentName: String = "Emmanuel Muriuki",
-    currentEmail: String = "emmanueli@mku.ac.ke",
-    currentPhone: String = "+254711234567",
-    currentStudentId: String = "BIT/2024/61120",
+    currentName: String = "",
+    currentEmail: String = "",
+    currentPhone: String = "",
+    currentStudentId: String = "",
     onBackClick: () -> Unit = {},
     onSaveComplete: () -> Unit = {},
     viewModel: EditProfileViewModel = viewModel()
@@ -75,14 +75,21 @@ fun EditProfileScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = EShopColors.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EShopColors.White)
                     }
                 },
                 actions = {
-                    // Save button in top bar
                     TextButton(
                         onClick = {
-                            viewModel.updateProfile(name, email, phoneNumber, studentId)
+                            viewModel.updateProfile(
+                                name = name,
+                                email = email,
+                                phoneNumber = phoneNumber,
+                                studentId = studentId,
+                                onSuccess = {
+                                    // This will be called after successful update
+                                }
+                            )
                         },
                         enabled = uiState !is EditProfileUiState.Loading
                     ) {
@@ -218,7 +225,7 @@ fun EditProfileScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Student ID
+                    // Student ID (read-only)
                     OutlinedTextField(
                         value = studentId,
                         onValueChange = { studentId = it },
@@ -231,7 +238,7 @@ fun EditProfileScreen(
                             focusedTextColor = EShopColors.White,
                             unfocusedTextColor = EShopColors.White
                         ),
-                        readOnly = true,  // Student ID cannot be changed
+                        readOnly = true,
                         supportingText = {
                             Text(
                                 text = "Student ID cannot be changed. Contact support for corrections.",

@@ -1,6 +1,5 @@
 package com.example.thikaeshop.ui.viewmodels
 
-import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.thikaeshop.data.repository.ProductRepository
@@ -31,7 +30,8 @@ class SellViewModel : ViewModel() {
         condition: String,
         location: String,
         landmark: String,
-        imageUri: Uri
+        imageBytes: ByteArray,
+        imageExtension: String = "jpg"
     ) {
         viewModelScope.launch {
             _uiState.value = SellUiState.Loading
@@ -45,12 +45,17 @@ class SellViewModel : ViewModel() {
                     condition = condition,
                     location = location,
                     landmark = landmark,
-                    imageUri = imageUri
+                    imageBytes = imageBytes,
+                    imageExtension = imageExtension
                 )
                 _uiState.value = SellUiState.Success
             } catch (e: Exception) {
                 _uiState.value = SellUiState.Error(e.message ?: "Failed to upload product")
             }
         }
+    }
+
+    fun resetState() {
+        _uiState.value = SellUiState.Idle
     }
 }

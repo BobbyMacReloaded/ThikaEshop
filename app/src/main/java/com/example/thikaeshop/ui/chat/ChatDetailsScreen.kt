@@ -6,6 +6,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
@@ -54,7 +56,7 @@ fun ChatDetailScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = EShopColors.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EShopColors.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -142,7 +144,7 @@ fun ChatDetailScreen(
                     containerColor = EShopColors.Orange,
                     modifier = Modifier.size(48.dp)
                 ) {
-                    Icon(Icons.Default.Send, contentDescription = "Send", tint = EShopColors.White)
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = EShopColors.White)
                 }
             }
         }

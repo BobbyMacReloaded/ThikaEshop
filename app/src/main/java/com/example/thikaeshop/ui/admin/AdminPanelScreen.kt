@@ -7,8 +7,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,12 +53,12 @@ fun AdminPanelScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = EShopColors.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = EShopColors.White)
                     }
                 },
                 actions = {
                     IconButton(onClick = onLogout) {
-                        Icon(Icons.Default.Logout, contentDescription = "Logout", tint = EShopColors.Error)
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout", tint = EShopColors.Error)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -449,7 +452,7 @@ fun ExpandableSection(
             }
 
             if (isExpanded) {
-                Divider(color = EShopColors.White20)
+                HorizontalDivider(Modifier, DividerDefaults.Thickness, color = EShopColors.White20)
                 Box(modifier = Modifier.padding(16.dp)) {
                     content()
                 }

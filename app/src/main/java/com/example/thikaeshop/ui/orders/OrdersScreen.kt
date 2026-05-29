@@ -20,15 +20,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.thikaeshop.data.models.Order
 import com.example.thikaeshop.ui.theme.EShopColors
+import com.example.thikaeshop.ui.viewmodels.OrdersUiState
+import com.example.thikaeshop.ui.viewmodels.OrdersViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrdersScreen(
     onBackClick: () -> Unit = {},
     onOrderClick: (String) -> Unit = {},
-    onRateOrder: (String, String, String) -> Unit = { _, _, _ -> }
+    onRateOrder: (String, String, String) -> Unit = { _, _, _ -> },
+    viewModel: OrdersViewModel = viewModel()
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Active", "Completed", "Cancelled")
@@ -40,6 +44,13 @@ fun OrdersScreen(
         1 -> allOrders.filter { it.status == "Delivered" }
         else -> allOrders.filter { it.status == "Cancelled" }
     }
+    val uiState by viewModel.uiState.collectAsState()
+
+
+    LaunchedEffect(Unit) {
+        viewModel.loadOrders()
+    }
+
 
     Scaffold(
         topBar = {
@@ -56,6 +67,19 @@ fun OrdersScreen(
             )
         }
     ) { paddingValues ->
+        when (uiState) {
+            is OrdersUiState.Loading -> { /* Progress */ }
+            is OrdersUiState.Success -> {
+                val allOrders = (uiState as OrdersUiState.Success).orders
+                val filteredOrders = when (selectedTab) {
+                    0 -> allOrders.filter { it.status !in listOf("delivered", "cancelled") }
+                    1 -> allOrders.filter { it.status == "delivered" }
+                    else -> allOrders.filter { it.status == "cancelled" }
+                }
+                // Display orders using OrderCard (convert map to data class)
+            }
+            is OrdersUiState.Error -> { /* Error */ }
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()

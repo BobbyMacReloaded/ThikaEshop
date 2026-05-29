@@ -24,12 +24,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.thikaeshop.data.models.Product
 import com.example.thikaeshop.data.models.UserProfile
 import com.example.thikaeshop.ui.components.EmptyState
 import com.example.thikaeshop.ui.components.LandmarkCard
 import com.example.thikaeshop.ui.components.ListingCard
 import com.example.thikaeshop.ui.components.ProfileMenuItem
 import com.example.thikaeshop.ui.components.profile.*
+import com.example.thikaeshop.ui.editlisting.EditListingScreen
 import com.example.thikaeshop.ui.theme.EShopColors
 import com.example.thikaeshop.ui.viewmodels.ProfileUiState
 import com.example.thikaeshop.ui.viewmodels.ProfileViewModel
@@ -40,12 +42,19 @@ fun ProfileScreen(
     onBackClick: () -> Unit = {},
     onLogout: () -> Unit = {},
     onVerificationClick: () -> Unit = {},
-    onEditProfileClick: () -> Unit = {},  // ← ADD THIS
+    onEditProfileClick: () -> Unit = {},
+    onSellClick: () -> Unit = {},
     viewModel: ProfileViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("My Listings", "Saved Landmarks")
+
+    // ========== ADD THESE STATES FOR EDIT/DELETE ==========
+    var showEditListing by remember { mutableStateOf(false) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var selectedProduct by remember { mutableStateOf<Product?>(null) }
+    var selectedListingToDelete by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -69,263 +78,329 @@ fun ProfileScreen(
             )
         }
     ) { paddingValues ->
-        when (uiState) {
-            is ProfileUiState.Loading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = EShopColors.Orange)
+        // ========== SHOW EDIT SCREEN IF NEEDED ==========
+        if (showEditListing && selectedProduct != null) {
+            EditListingScreen(
+                listingId = selectedProduct!!.id,
+                currentTitle = selectedProduct!!.title,
+                currentDescription = selectedProduct!!.description,
+                currentPrice = selectedProduct!!.price,
+                currentCategory = selectedProduct!!.category,
+                currentLocation = selectedProduct!!.location,
+                currentLandmark = selectedProduct!!.landmark,
+                onBackClick = { showEditListing = false },
+                onUpdateSuccess = {
+                    showEditListing = false
+                    viewModel.loadProfileData()
                 }
-            }
-            is ProfileUiState.Success -> {
-                val state = uiState as ProfileUiState.Success
-                val userProfile = state.userProfile
-
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Brush.verticalGradient(listOf(EShopColors.DarkBg, EShopColors.DarkCard)))
-                        .padding(paddingValues)
-                ) {
-                    // Profile Header
-                    item {
-                        ProfileHeader(userProfile = userProfile)
+            )
+        } else {
+            when (uiState) {
+                is ProfileUiState.Loading -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = EShopColors.Orange)
                     }
+                }
+                is ProfileUiState.Success -> {
+                    val state = uiState as ProfileUiState.Success
+                    val userProfile = state.userProfile
+                    val myListings = state.myListings  // List<Product>
 
-                    // Stats Row
-                    item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            StatCard(
-                                value = userProfile.totalOrders.toString(),
-                                label = "Orders",
-                                icon = Icons.Default.Receipt,
-                                color = EShopColors.Orange,
-                                modifier = Modifier.weight(1f)
-                            )
-                            StatCard(
-                                value = "KSh ${userProfile.totalSpent/1000}K",
-                                label = "Spent",
-                                icon = Icons.Default.Payments,
-                                color = EShopColors.Gold,
-                                modifier = Modifier.weight(1f)
-                            )
-                            StatCard(
-                                value = state.myListings.size.toString(),
-                                label = "Listings",
-                                icon = Icons.Default.ShoppingBag,
-                                color = EShopColors.Success,
-                                modifier = Modifier.weight(1f)
-                            )
-                            StatCard(
-                                value = userProfile.rating.toString(),
-                                label = "Rating ★",
-                                icon = Icons.Default.Star,
-                                color = EShopColors.Warning,
-                                modifier = Modifier.weight(1f)
-                            )
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Brush.verticalGradient(listOf(EShopColors.DarkBg, EShopColors.DarkCard)))
+                            .padding(paddingValues)
+                    ) {
+                        // Profile Header
+                        item {
+                            ProfileHeader(userProfile = userProfile)
                         }
-                    }
 
-                    item {
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
+                        // Stats Row
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                StatCard(
+                                    value = userProfile.totalOrders.toString(),
+                                    label = "Orders",
+                                    icon = Icons.Default.Receipt,
+                                    color = EShopColors.Orange,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                StatCard(
+                                    value = "KSh ${userProfile.totalSpent/1000}K",
+                                    label = "Spent",
+                                    icon = Icons.Default.Payments,
+                                    color = EShopColors.Gold,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                StatCard(
+                                    value = myListings.size.toString(),
+                                    label = "Listings",
+                                    icon = Icons.Default.ShoppingBag,
+                                    color = EShopColors.Success,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                StatCard(
+                                    value = userProfile.rating.toString(),
+                                    label = "Rating ★",
+                                    icon = Icons.Default.Star,
+                                    color = EShopColors.Warning,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
 
-                    // Tab Row
-                    item {
-                        TabRow(
-                            selectedTabIndex = selectedTab,
-                            containerColor = EShopColors.DarkCard,
-                            contentColor = EShopColors.Orange
-                        ) {
-                            tabs.forEachIndexed { index, title ->
-                                Tab(
-                                    selected = selectedTab == index,
-                                    onClick = { selectedTab = index },
-                                    text = {
-                                        Text(
-                                            title,
-                                            color = if (selectedTab == index) EShopColors.Orange else EShopColors.White50
+                        item {
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+
+                        // Tab Row
+                        item {
+                            TabRow(
+                                selectedTabIndex = selectedTab,
+                                containerColor = EShopColors.DarkCard,
+                                contentColor = EShopColors.Orange
+                            ) {
+                                tabs.forEachIndexed { index, title ->
+                                    Tab(
+                                        selected = selectedTab == index,
+                                        onClick = { selectedTab = index },
+                                        text = {
+                                            Text(
+                                                title,
+                                                color = if (selectedTab == index) EShopColors.Orange else EShopColors.White50
+                                            )
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        // Tab Content
+                        when (selectedTab) {
+                            0 -> {
+                                if (myListings.isEmpty()) {
+                                    item {
+                                        EmptyState(
+                                            icon = Icons.Default.ShoppingBag,
+                                            title = "No Listings",
+                                            message = "Sell your first item to see it here",
+                                            buttonText = "Start Selling",
+                                            onButtonClick = { onSellClick.invoke() }  // ← Use the callback
                                         )
                                     }
-                                )
-                            }
-                        }
-                    }
-
-                    // Tab Content
-                    when (selectedTab) {
-                        0 -> {
-                            if (state.myListings.isEmpty()) {
-                                item {
-                                    EmptyState(
-                                        icon = Icons.Default.ShoppingBag,
-                                        title = "No Listings",
-                                        message = "Sell your first item to see it here",
-                                        buttonText = "Start Selling",
-                                        onButtonClick = { }
-                                    )
-                                }
-                            } else {
-                                items(state.myListings) { listing ->
-                                    ListingCard(
-                                        listing = listing,
-                                        onEditClick = { /* Edit listing */ },
-                                        onDeleteClick = { /* Delete listing */ }
-                                    )
+                                } else {
+                                    items(myListings) { product ->
+                                        ListingCard(
+                                            listing = product,
+                                            onEditClick = {
+                                                selectedProduct = product
+                                                showEditListing = true
+                                            },
+                                            onDeleteClick = {
+                                                selectedListingToDelete = product.id
+                                                showDeleteConfirmation = true
+                                            }
+                                        )
+                                    }
                                 }
                             }
-                        }
-                        1 -> {
-                            if (state.savedLandmarks.isEmpty()) {
-                                item {
-                                    EmptyState(
-                                        icon = Icons.Default.LocationOn,
-                                        title = "No Saved Landmarks",
-                                        message = "Add delivery locations for faster checkout",
-                                        buttonText = "Add Landmark",
-                                        onButtonClick = { }
-                                    )
-                                }
-                            } else {
-                                items(state.savedLandmarks) { landmark ->
-                                    LandmarkCard(
-                                        landmark = landmark,
-                                        onDeleteClick = { /* Delete landmark */ }
-                                    )
+                            1 -> {
+                                if (state.savedLandmarks.isEmpty()) {
+                                    item {
+                                        EmptyState(
+                                            icon = Icons.Default.LocationOn,
+                                            title = "No Saved Landmarks",
+                                            message = "Add delivery locations for faster checkout",
+                                            buttonText = "Add Landmark",
+                                            onButtonClick = { }
+                                        )
+                                    }
+                                } else {
+                                    items(state.savedLandmarks) { landmark ->
+                                        LandmarkCard(
+                                            landmark = landmark,
+                                            onDeleteClick = { /* Delete landmark */ }
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    item {
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
+                        item {
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
 
-                    // Settings Section
-                    item {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = EShopColors.White10)
-                        ) {
-                            Column {
-                                // Edit Profile - NOW USING onEditProfileClick
-                                ProfileMenuItem(
-                                    icon = Icons.Default.Edit,
-                                    title = "Edit Profile",
-                                    subtitle = "Update your personal information",
-                                    onClick = onEditProfileClick  // ← CHANGED
+                        // Settings Section
+                        item {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = EShopColors.White10)
+                            ) {
+                                Column {
+                                    ProfileMenuItem(
+                                        icon = Icons.Default.Edit,
+                                        title = "Edit Profile",
+                                        subtitle = "Update your personal information",
+                                        onClick = onEditProfileClick
+                                    )
+                                    HorizontalDivider(
+                                        Modifier,
+                                        DividerDefaults.Thickness,
+                                        color = EShopColors.White20
+                                    )
+                                    ProfileMenuItem(
+                                        icon = Icons.Default.Settings,
+                                        title = "Settings",
+                                        subtitle = "Privacy, notifications, language",
+                                        onClick = { }
+                                    )
+                                    HorizontalDivider(
+                                        Modifier,
+                                        DividerDefaults.Thickness,
+                                        color = EShopColors.White20
+                                    )
+                                    ProfileMenuItem(
+                                        icon = Icons.AutoMirrored.Filled.Help,
+                                        title = "Help & Support",
+                                        subtitle = "FAQs, contact us, report issue",
+                                        onClick = { }
+                                    )
+                                    HorizontalDivider(
+                                        Modifier,
+                                        DividerDefaults.Thickness,
+                                        color = EShopColors.White20
+                                    )
+                                    ProfileMenuItem(
+                                        icon = Icons.Default.Info,
+                                        title = "Terms & Privacy Policy",
+                                        subtitle = "Read our terms and conditions",
+                                        onClick = { }
+                                    )
+                                    HorizontalDivider(
+                                        Modifier,
+                                        DividerDefaults.Thickness,
+                                        color = EShopColors.White20
+                                    )
+                                    ProfileMenuItem(
+                                        icon = Icons.Default.Verified,
+                                        title = "Student Verification",
+                                        subtitle = if (userProfile.isVerified) "Verified ✓" else "Get verified to sell",
+                                        onClick = onVerificationClick
+                                    )
+                                }
+                            }
+                        }
+
+                        // Logout Button
+                        item {
+                            Button(
+                                onClick = onLogout,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                                    .height(50.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color.Transparent
+                                ),
+                                elevation = ButtonDefaults.buttonElevation(0.dp)
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.Logout,
+                                    contentDescription = "Logout",
+                                    tint = EShopColors.Error,
+                                    modifier = Modifier.size(20.dp)
                                 )
-                                HorizontalDivider(
-                                    Modifier,
-                                    DividerDefaults.Thickness,
-                                    color = EShopColors.White20
-                                )
-                                ProfileMenuItem(
-                                    icon = Icons.Default.Settings,
-                                    title = "Settings",
-                                    subtitle = "Privacy, notifications, language",
-                                    onClick = { }
-                                )
-                                HorizontalDivider(
-                                    Modifier,
-                                    DividerDefaults.Thickness,
-                                    color = EShopColors.White20
-                                )
-                                ProfileMenuItem(
-                                    icon = Icons.AutoMirrored.Filled.Help,
-                                    title = "Help & Support",
-                                    subtitle = "FAQs, contact us, report issue",
-                                    onClick = { }
-                                )
-                                HorizontalDivider(
-                                    Modifier,
-                                    DividerDefaults.Thickness,
-                                    color = EShopColors.White20
-                                )
-                                ProfileMenuItem(
-                                    icon = Icons.Default.Info,
-                                    title = "Terms & Privacy Policy",
-                                    subtitle = "Read our terms and conditions",
-                                    onClick = { }
-                                )
-                                HorizontalDivider(
-                                    Modifier,
-                                    DividerDefaults.Thickness,
-                                    color = EShopColors.White20
-                                )
-                                ProfileMenuItem(
-                                    icon = Icons.Default.Verified,
-                                    title = "Student Verification",
-                                    subtitle = if (userProfile.isVerified) "Verified ✓" else "Get verified to sell",
-                                    onClick = onVerificationClick
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Logout",
+                                    color = EShopColors.Error,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
                         }
-                    }
 
-                    // Logout Button
-                    item {
-                        Button(
-                            onClick = onLogout,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp)
-                                .height(50.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Transparent
-                            ),
-                            elevation = ButtonDefaults.buttonElevation(0.dp)
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.Logout,
-                                contentDescription = "Logout",
-                                tint = EShopColors.Error,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Logout",
-                                color = EShopColors.Error,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+                        item {
+                            Spacer(modifier = Modifier.height(32.dp))
                         }
-                    }
-
-                    item {
-                        Spacer(modifier = Modifier.height(32.dp))
                     }
                 }
-            }
-            is ProfileUiState.Error -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Error: ${(uiState as ProfileUiState.Error).message}", color = EShopColors.Error)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadProfileData() }) {
-                            Text("Retry")
+                is ProfileUiState.Error -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Error: ${(uiState as ProfileUiState.Error).message}", color = EShopColors.Error)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(onClick = { viewModel.loadProfileData() }) {
+                                Text("Retry")
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    // ========== DELETE CONFIRMATION DIALOG ==========
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = {
+                Text(
+                    text = "Delete Listing",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = EShopColors.White
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to delete this listing? This action cannot be undone.",
+                    fontSize = 14.sp,
+                    color = EShopColors.White50
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteListing(selectedListingToDelete) {
+                            showDeleteConfirmation = false
+                            viewModel.loadProfileData()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EShopColors.Error)
+                ) {
+                    Text("Delete", color = EShopColors.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) {
+                    Text("Cancel", color = EShopColors.Orange)
+                }
+            },
+            containerColor = EShopColors.DarkCard,
+            shape = RoundedCornerShape(16.dp)
+        )
     }
 }
 
@@ -410,11 +485,7 @@ fun ProfileHeader(userProfile: UserProfile) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Text(
-            text = "Member since ${userProfile.memberSince}",
-            fontSize = 11.sp,
-            color = EShopColors.White30
-        )
+
     }
 }
 
