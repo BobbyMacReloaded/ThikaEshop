@@ -6,6 +6,7 @@ import com.example.thikaeshop.data.repository.ProductRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import android.util.Log
 
 sealed class CheckoutUiState {
     object Idle : CheckoutUiState()
@@ -32,9 +33,11 @@ class CheckoutViewModel : ViewModel() {
         paymentMethod: String
     ) {
         viewModelScope.launch {
+            Log.d("CheckoutVM", "placeOrder called")
             _uiState.value = CheckoutUiState.Loading
             try {
-                repository.saveOrder(
+                Log.d("CheckoutVM", "Calling repository.saveOrder...")
+                val orderId = repository.saveOrder(
                     productId = productId,
                     productName = productName,
                     productImageUrl = productImageUrl,
@@ -45,8 +48,10 @@ class CheckoutViewModel : ViewModel() {
                     landmark = landmark,
                     paymentMethod = paymentMethod
                 )
+                Log.d("CheckoutVM", "saveOrder succeeded, orderId: $orderId")
                 _uiState.value = CheckoutUiState.Success
             } catch (e: Exception) {
+                Log.e("CheckoutVM", "saveOrder failed: ${e.message}", e)
                 _uiState.value = CheckoutUiState.Error(e.message ?: "Order failed")
             }
         }

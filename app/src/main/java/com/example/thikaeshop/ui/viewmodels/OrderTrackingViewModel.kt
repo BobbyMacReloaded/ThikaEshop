@@ -2,24 +2,30 @@ package com.example.thikaeshop.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.thikaeshop.data.models.OrderStatus
-import com.example.thikaeshop.data.models.OrderTracking
 import com.example.thikaeshop.data.models.DeliveryLocation
 import com.example.thikaeshop.data.models.OrderItem
+import com.example.thikaeshop.data.models.OrderStatus
+import com.example.thikaeshop.data.models.OrderTracking
+import com.example.thikaeshop.data.models.OrderTrackingData
+import com.example.thikaeshop.data.models.RiderInfo
 import com.example.thikaeshop.data.models.StatusUpdate
 import com.example.thikaeshop.data.repository.ProductRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
+// ── UI state ──────────────────────────────────────────────────────────────────
 sealed class OrderTrackingUiState {
     object Loading : OrderTrackingUiState()
     data class Success(val tracking: OrderTracking) : OrderTrackingUiState()
     data class Error(val message: String) : OrderTrackingUiState()
 }
 
+// ── ViewModel ─────────────────────────────────────────────────────────────────
 class OrderTrackingViewModel : ViewModel() {
+
     private val repository = ProductRepository()
+
     private val _uiState = MutableStateFlow<OrderTrackingUiState>(OrderTrackingUiState.Loading)
     val uiState: StateFlow<OrderTrackingUiState> = _uiState
 
@@ -27,10 +33,9 @@ class OrderTrackingViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = OrderTrackingUiState.Loading
             try {
-                val orderMap = repository.getOrderById(orderId)
-                if (orderMap != null) {
-                    val tracking = mapToOrderTracking(orderMap)
-                    _uiState.value = OrderTrackingUiState.Success(tracking)
+                val data = repository.getOrderById(orderId)
+                if (data != null) {
+                    _uiState.value = OrderTrackingUiState.Success(data.toOrderTracking())
                 } else {
                     _uiState.value = OrderTrackingUiState.Error("Order not found")
                 }
@@ -42,61 +47,99 @@ class OrderTrackingViewModel : ViewModel() {
 
     fun updateOrderStatus(orderId: String, newStatus: String) {
         viewModelScope.launch {
-            repository.updateOrderStatus(orderId, newStatus)
+            try {
+                repository.updateOrderStatus(orderId, newStatus)
+                // Reload so the UI reflects the change
+                loadOrder(orderId)
+            } catch (_: Exception) { /* optionally surface error */ }
+        }
+    }
+}
+
+// ── Mapping helper ─────────────────────────────────────────────────────────────
+/**
+ * Converts an [OrderTrackingData] (Supabase row) into the existing [OrderTracking] UI model.
+ *
+ * statusHistory is reconstructed from the current status – all statuses up to and
+ * including the current one are marked as complete.  You can later persist real
+ * history in a separate `order_status_history` table and join it here.
+ */
+private fun OrderTrackingData.toOrderTracking(): OrderTracking {
+
+    val currentStatus = status.toOrderStatus()
+
+    // Build a progressive history up to the current step
+    val allSteps = listOf(
+        OrderStatus.PROCESSING       to "Order confirmed and being prepared",
+        OrderStatus.SHIPPED          to "Item has been packed and handed to rider",
+        OrderStatus.OUT_FOR_DELIVERY to "Rider is on the way to you",
+        OrderStatus.DELIVERED        to "Order delivered successfully"
+    )
+
+    val statusHistory: List<StatusUpdate> = buildList {
+        val now = System.currentTimeMillis()
+        for ((step, message) in allSteps) {
+            add(
+                StatusUpdate(
+                    status    = step,
+                    timestamp = now,          // real timestamps need a history table
+                    message   = message
+                )
+            )
+            if (step == currentStatus) break  // stop at current status
         }
     }
 
-    private fun mapToOrderTracking(map: Map<String, Any>): OrderTracking {
-        val orderId = map["id"] as String
-        val statusStr = map["status"] as String
-        val orderStatus = when (statusStr.lowercase()) {
-            "processing" -> OrderStatus.PROCESSING
-            "shipped" -> OrderStatus.SHIPPED
-            "out_for_delivery" -> OrderStatus.OUT_FOR_DELIVERY
-            "delivered" -> OrderStatus.DELIVERED
-            "cancelled" -> OrderStatus.CANCELLED
-            else -> OrderStatus.PROCESSING
-        }
+    val deliveryLocation = DeliveryLocation(
+        area        = deliveryLocation,
+        landmark    = landmark,
+        coordinates = null                    // extend later if you store lat/lng
+    )
 
-        // Build status history (simplified)
-        val statusHistory = listOf(
-            StatusUpdate(OrderStatus.PROCESSING, 0, "Order placed"),
-            StatusUpdate(orderStatus, 0, "Current status: ${statusStr.replace("_", " ")}")
+    val riderInfo: RiderInfo? = if (riderName != null) {
+        RiderInfo(
+            name            = riderName,
+            phone           = riderPhone ?: "",
+            rating          = riderRating ?: 0.0,
+            currentLocation = riderLocation ?: "En route"
         )
+    } else null
 
-        val deliveryLocation = DeliveryLocation(
-            area = map["delivery_location"] as? String ?: "",
-            landmark = map["landmark"] as? String ?: "",
-            coordinates = null
-        )
-
-        // Rider info (placeholder – you can fetch from another table later)
-        val riderInfo = null
-
-        val estimatedTime = when (orderStatus) {
-            OrderStatus.PROCESSING -> "Processing"
-            OrderStatus.SHIPPED -> "1-2 days"
-            OrderStatus.OUT_FOR_DELIVERY -> "30-45 minutes"
-            OrderStatus.DELIVERED -> "Delivered"
-            else -> "Pending"
-        }
-
-        val orderItem = OrderItem(
-            id = map["product_id"] as? String ?: "",
-            name = map["product_name"] as? String ?: "",
-            quantity = (map["quantity"] as? Number)?.toInt() ?: 1,
-            price = (map["total_amount"] as? Number)?.toInt() ?: 0,
-            icon = "📦"
-        )
-
-        return OrderTracking(
-            orderId = orderId,
-            status = orderStatus,
-            statusHistory = statusHistory,
-            deliveryLocation = deliveryLocation,
-            riderInfo = riderInfo,
-            estimatedDeliveryTime = estimatedTime,
-            items = listOf(orderItem)
-        )
+    val estimatedDeliveryTime = when (currentStatus) {
+        OrderStatus.PROCESSING       -> "30-60 minutes"
+        OrderStatus.SHIPPED          -> "1-2 hours"
+        OrderStatus.OUT_FOR_DELIVERY -> "15-30 minutes"
+        OrderStatus.DELIVERED        -> "Delivered"
+        OrderStatus.CANCELLED        -> "Cancelled"
     }
+
+    val item = OrderItem(
+        id       = productId,
+        name     = productName,
+        quantity = quantity,
+        price    = totalAmount,
+        icon     = "📦",
+
+        imageUrl = productImageUrl
+    )
+
+    return OrderTracking(
+        orderId               = id,
+        status                = currentStatus,
+        statusHistory         = statusHistory,
+        deliveryLocation      = deliveryLocation,
+        riderInfo             = riderInfo,
+        estimatedDeliveryTime = estimatedDeliveryTime,
+        items                 = listOf(item)
+    )
+}
+
+/** Maps a Supabase status string to the [OrderStatus] enum. */
+private fun String.toOrderStatus(): OrderStatus = when (lowercase()) {
+    "processing"       -> OrderStatus.PROCESSING
+    "shipped"          -> OrderStatus.SHIPPED
+    "out_for_delivery" -> OrderStatus.OUT_FOR_DELIVERY
+    "delivered"        -> OrderStatus.DELIVERED
+    "cancelled"        -> OrderStatus.CANCELLED
+    else               -> OrderStatus.PROCESSING
 }

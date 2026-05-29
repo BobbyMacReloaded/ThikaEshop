@@ -1,11 +1,14 @@
 package com.example.thikaeshop.data.repository
 
 import com.google.firebase.auth.FirebaseAuth
+import com.example.thikaeshop.data.models.OrderDisplay
+import com.example.thikaeshop.data.models.OrderInsert
+import com.example.thikaeshop.data.models.OrderTrackingData
 import com.example.thikaeshop.data.models.Product
 import com.example.thikaeshop.data.models.UserProfile
 import com.example.thikaeshop.utils.SupabaseClient
-import com.google.firebase.Timestamp
-import io.github.jan.supabase.postgrest.query.Order
+import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.query.Order as PostgrestOrder
 import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -24,15 +27,29 @@ class ProductRepository {
     private val currentUserPhone: String
         get() = auth.currentUser?.phoneNumber ?: ""
 
-    // ========== PRODUCT FUNCTIONS ==========
+    // =========================================================
+    // PRODUCT FUNCTIONS
+    // =========================================================
 
-    suspend fun uploadProductImageBytes(imageBytes: ByteArray, extension: String = "jpg"): String =
-        withContext(Dispatchers.IO) {
-            val fileName = "${UUID.randomUUID()}.$extension"
-            SupabaseClient.client.storage["product-images"].upload(fileName, imageBytes)
-            val supabaseUrl = "https://ylzlxqxvlqdzzxuhdjzi.supabase.co"
-            "$supabaseUrl/storage/v1/object/public/product-images/$fileName"
-        }
+    suspend fun uploadProductImageBytes(
+        imageBytes: ByteArray,
+        extension: String = "jpg"
+    ): String = withContext(Dispatchers.IO) {
+
+        val fileName = "${UUID.randomUUID()}.$extension"
+
+        SupabaseClient.client.storage
+            .from("product-images")
+            .upload(
+                path = fileName,
+                data = imageBytes
+            )
+
+        val supabaseUrl =
+            "https://ylzlxqxvlqdzzxuhdjzi.supabase.co"
+
+        "$supabaseUrl/storage/v1/object/public/product-images/$fileName"
+    }
 
     suspend fun saveProduct(
         title: String,
@@ -46,7 +63,11 @@ class ProductRepository {
         imageBytes: ByteArray,
         imageExtension: String = "jpg"
     ): Product = withContext(Dispatchers.IO) {
-        val imageUrl = uploadProductImageBytes(imageBytes, imageExtension)
+
+        val imageUrl = uploadProductImageBytes(
+            imageBytes = imageBytes,
+            extension = imageExtension
+        )
 
         val product = Product(
             id = UUID.randomUUID().toString(),
@@ -66,66 +87,159 @@ class ProductRepository {
             isFeatured = false
         )
 
-        SupabaseClient.database["products"].insert(product)
+        SupabaseClient.database
+            .from("products")
+            .insert(product)
+
         product
     }
 
-    suspend fun getAllProducts(): List<Product> = withContext(Dispatchers.IO) {
-        SupabaseClient.database["products"]
-            .select {
-                filter { eq("is_available", true) }
-                order("created_at", Order.DESCENDING)
-            }
-            .decodeList<Product>()
-    }
+    suspend fun getAllProducts(): List<Product> =
+        withContext(Dispatchers.IO) {
 
-    suspend fun getProductsByCategory(category: String): List<Product> = withContext(Dispatchers.IO) {
-        SupabaseClient.database["products"]
-            .select {
-                filter {
-                    eq("category", category)
-                    eq("is_available", true)
+            try {
+
+                SupabaseClient.database
+                    .from("products")
+                    .select {
+                        filter {
+                            eq("is_available", true)
+                        }
+
+                        order(
+                            column = "created_at",
+                            order = PostgrestOrder.DESCENDING
+                        )
+                    }
+                    .decodeList<Product>()
+
+            } catch (e: Exception) {
+
+                e.printStackTrace()
+                emptyList()
+            }
+        }
+
+    suspend fun getProductsByCategory(
+        category: String
+    ): List<Product> = withContext(Dispatchers.IO) {
+
+        try {
+
+            SupabaseClient.database
+                .from("products")
+                .select {
+                    filter {
+                        eq("category", category)
+                        eq("is_available", true)
+                    }
                 }
-            }
-            .decodeList<Product>()
-    }
+                .decodeList<Product>()
 
-    suspend fun getSecondHandProducts(): List<Product> = withContext(Dispatchers.IO) {
-        SupabaseClient.database["products"]
-            .select {
-                filter {
-                    eq("is_second_hand", true)
-                    eq("is_available", true)
-                }
-            }
-            .decodeList<Product>()
-    }
+        } catch (e: Exception) {
 
-    suspend fun getFeaturedProducts(): List<Product> = withContext(Dispatchers.IO) {
-        SupabaseClient.database["products"]
-            .select {
-                filter {
-                    eq("is_featured", true)
-                    eq("is_available", true)
-                }
-            }
-            .decodeList<Product>()
-    }
-
-    suspend fun searchProducts(query: String): List<Product> = withContext(Dispatchers.IO) {
-        if (query.isEmpty()) return@withContext getAllProducts()
-        getAllProducts().filter { product ->
-            product.title.contains(query, ignoreCase = true) ||
-                    product.description.contains(query, ignoreCase = true) ||
-                    product.category.contains(query, ignoreCase = true)
+            e.printStackTrace()
+            emptyList()
         }
     }
 
-    suspend fun deleteProduct(productId: String) = withContext(Dispatchers.IO) {
-        SupabaseClient.database["products"]
-            .delete {
-                filter { eq("id", productId) }
+    suspend fun getSecondHandProducts(): List<Product> =
+        withContext(Dispatchers.IO) {
+
+            try {
+
+                SupabaseClient.database
+                    .from("products")
+                    .select {
+                        filter {
+                            eq("is_second_hand", true)
+                            eq("is_available", true)
+                        }
+                    }
+                    .decodeList<Product>()
+
+            } catch (e: Exception) {
+
+                e.printStackTrace()
+                emptyList()
             }
+        }
+
+    suspend fun getFeaturedProducts(): List<Product> =
+        withContext(Dispatchers.IO) {
+
+            try {
+
+                SupabaseClient.database
+                    .from("products")
+                    .select {
+                        filter {
+                            eq("is_featured", true)
+                            eq("is_available", true)
+                        }
+                    }
+                    .decodeList<Product>()
+
+            } catch (e: Exception) {
+
+                e.printStackTrace()
+                emptyList()
+            }
+        }
+
+    suspend fun searchProducts(
+        query: String
+    ): List<Product> = withContext(Dispatchers.IO) {
+
+        try {
+
+            if (query.isEmpty()) {
+                return@withContext getAllProducts()
+            }
+
+            getAllProducts().filter { product ->
+
+                product.title.contains(
+                    query,
+                    ignoreCase = true
+                ) ||
+
+                        product.description.contains(
+                            query,
+                            ignoreCase = true
+                        ) ||
+
+                        product.category.contains(
+                            query,
+                            ignoreCase = true
+                        )
+            }
+
+        } catch (e: Exception) {
+
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    suspend fun deleteProduct(
+        productId: String
+    ) = withContext(Dispatchers.IO) {
+
+        try {
+
+            SupabaseClient.database
+                .from("products")
+                .delete {
+                    filter {
+                        eq("id", productId)
+                    }
+                }
+
+        } catch (e: Exception) {
+
+            e.printStackTrace()
+        }
     }
 
     suspend fun updateProduct(
@@ -137,46 +251,94 @@ class ProductRepository {
         location: String,
         landmark: String
     ) = withContext(Dispatchers.IO) {
-        SupabaseClient.database["products"]
-            .update(
-                update = {
-                    this["title"] = title
-                    this["description"] = description
-                    this["price"] = price
-                    this["category"] = category
-                    this["location"] = location
-                    this["landmark"] = landmark
-                }
-            ) {
-                filter { eq("id", productId) }
-            }
-    }
 
-    suspend fun getProductById(productId: String): Product? = withContext(Dispatchers.IO) {
-        SupabaseClient.database["products"]
-            .select {
-                filter { eq("id", productId) }
-            }
-            .decodeSingleOrNull<Product>()
-    }
-
-    // ========== USER PROFILE FUNCTIONS ==========
-
-    suspend fun getUserProfile(userId: String): UserProfile? = withContext(Dispatchers.IO) {
         try {
-            SupabaseClient.database["users"]
-                .select {
-                    filter { eq("id", userId) }
+
+            SupabaseClient.database
+                .from("products")
+                .update(
+                    {
+                        set("title", title)
+                        set("description", description)
+                        set("price", price)
+                        set("category", category)
+                        set("location", location)
+                        set("landmark", landmark)
+                    }
+                ) {
+                    filter {
+                        eq("id", productId)
+                    }
                 }
-                .decodeSingleOrNull<UserProfile>()
+
         } catch (e: Exception) {
+
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun getProductById(
+        productId: String
+    ): Product? = withContext(Dispatchers.IO) {
+
+        try {
+
+            SupabaseClient.database
+                .from("products")
+                .select {
+                    filter {
+                        eq("id", productId)
+                    }
+                }
+                .decodeSingleOrNull<Product>()
+
+        } catch (e: Exception) {
+
+            e.printStackTrace()
             null
         }
     }
 
-    suspend fun saveUserProfile(userProfile: UserProfile) = withContext(Dispatchers.IO) {
-        SupabaseClient.database["users"]
-            .upsert(userProfile)
+    // =========================================================
+    // USER PROFILE FUNCTIONS
+    // =========================================================
+
+    suspend fun getUserProfile(
+        userId: String
+    ): UserProfile? = withContext(Dispatchers.IO) {
+
+        try {
+
+            SupabaseClient.database
+                .from("users")
+                .select {
+                    filter {
+                        eq("id", userId)
+                    }
+                }
+                .decodeSingleOrNull<UserProfile>()
+
+        } catch (e: Exception) {
+
+            e.printStackTrace()
+            null
+        }
+    }
+
+    suspend fun saveUserProfile(
+        userProfile: UserProfile
+    ) = withContext(Dispatchers.IO) {
+
+        try {
+
+            SupabaseClient.database
+                .from("users")
+                .upsert(userProfile)
+
+        } catch (e: Exception) {
+
+            e.printStackTrace()
+        }
     }
 
     suspend fun updateUserProfile(
@@ -185,40 +347,89 @@ class ProductRepository {
         email: String,
         phone: String
     ) = withContext(Dispatchers.IO) {
-        SupabaseClient.database["users"]
-            .update(
-                update = {
-                    this["name"] = name
-                    this["email"] = email
-                    this["phone"] = phone
+
+        try {
+
+            SupabaseClient.database
+                .from("users")
+                .update(
+                    {
+                        set("name", name)
+                        set("email", email)
+                        set("phone", phone)
+                    }
+                ) {
+                    filter {
+                        eq("id", userId)
+                    }
                 }
-            ) {
-                filter { eq("id", userId) }
-            }
+
+        } catch (e: Exception) {
+
+            e.printStackTrace()
+        }
     }
 
-    // Admin functions
-    suspend fun promoteToFeatured(productId: String) = withContext(Dispatchers.IO) {
-        SupabaseClient.database["products"].update(
-            update = { this["is_featured"] = true },
-            request = { filter { eq("id", productId) } }
-        )
+    // =========================================================
+    // ADMIN FUNCTIONS
+    // =========================================================
+
+    suspend fun promoteToFeatured(
+        productId: String
+    ) = withContext(Dispatchers.IO) {
+
+        try {
+
+            SupabaseClient.database
+                .from("products")
+                .update(
+                    {
+                        set("is_featured", true)
+                    }
+                ) {
+                    filter {
+                        eq("id", productId)
+                    }
+                }
+
+        } catch (e: Exception) {
+
+            e.printStackTrace()
+        }
     }
 
-    suspend fun removeProduct(productId: String) = withContext(Dispatchers.IO) {
-        SupabaseClient.database["products"].update(
-            update = { this["is_available"] = false },
-            request = { filter { eq("id", productId) } }
-        )
-    }
-    // ========== ORDER FUNCTIONS ==========
+    suspend fun removeProduct(
+        productId: String
+    ) = withContext(Dispatchers.IO) {
 
-    // Generate unique order number
+        try {
+
+            SupabaseClient.database
+                .from("products")
+                .update(
+                    {
+                        set("is_available", false)
+                    }
+                ) {
+                    filter {
+                        eq("id", productId)
+                    }
+                }
+
+        } catch (e: Exception) {
+
+            e.printStackTrace()
+        }
+    }
+
+    // =========================================================
+    // ORDER FUNCTIONS
+    // =========================================================
+
     private fun generateOrderNumber(): String {
         return "ORD-${System.currentTimeMillis()}"
     }
 
-    // Save order from checkout
     suspend fun saveOrder(
         productId: String,
         productName: String,
@@ -230,94 +441,151 @@ class ProductRepository {
         landmark: String,
         paymentMethod: String
     ): String = withContext(Dispatchers.IO) {
-        val orderId = UUID.randomUUID().toString()
-        val orderNumber = generateOrderNumber()
 
-        val order = mapOf(
-            "id" to orderId,
-            "order_number" to orderNumber,
-            "buyer_id" to currentUserId,
-            "seller_id" to sellerId,
-            "product_id" to productId,
-            "product_name" to productName,
-            "product_image_url" to productImageUrl,
-            "quantity" to quantity,
-            "total_amount" to totalAmount,
-            "status" to "pending",
-            "delivery_location" to deliveryLocation,
-            "landmark" to landmark,
-            "payment_method" to paymentMethod,
-            "is_escrow_held" to true,
-            "created_at" to Timestamp.now(),
-            "updated_at" to Timestamp.now()
-        )
+        try {
 
-        SupabaseClient.database["orders"].insert(order)
-        orderId
+            val orderId = UUID.randomUUID().toString()
+
+            val order = OrderInsert(
+                id = orderId,
+                orderNumber = generateOrderNumber(),
+                buyerId = currentUserId,
+                sellerId = sellerId,
+                productId = productId,
+                productName = productName,
+                productImageUrl = productImageUrl,
+                quantity = quantity,
+                totalAmount = totalAmount,
+                status = "processing",
+                deliveryLocation = deliveryLocation,
+                landmark = landmark,
+                paymentMethod = paymentMethod,
+                isEscrowHeld = true
+            )
+
+            SupabaseClient.database
+                .from("orders")
+                .insert(order)
+
+            println("ORDER SAVED SUCCESSFULLY")
+
+            orderId
+
+        } catch (e: Exception) {
+
+            println("SAVE ORDER ERROR")
+            e.printStackTrace()
+
+            throw e
+        }
     }
 
-    // Get all orders for current user (as buyer or seller)
-    suspend fun getMyOrders(): List<Map<String, Any>> = withContext(Dispatchers.IO) {
-        SupabaseClient.database["orders"]
-            .select {
-                filter {
-                    or {
-                        eq("buyer_id", currentUserId)
-                        eq("seller_id", currentUserId)
+    suspend fun getMyOrders(): List<OrderDisplay> =
+        withContext(Dispatchers.IO) {
+
+            try {
+
+                SupabaseClient.database
+                    .from("orders")
+                    .select {
+
+                        filter {
+                            or {
+                                eq("buyer_id", currentUserId)
+                                eq("seller_id", currentUserId)
+                            }
+                        }
+
+                        order(
+                            column = "created_at",
+                            order = PostgrestOrder.DESCENDING
+                        )
+                    }
+                    .decodeList<OrderDisplay>()
+
+            } catch (e: Exception) {
+
+                e.printStackTrace()
+                emptyList()
+            }
+        }
+
+    suspend fun getOrderById(
+        orderId: String
+    ): OrderTrackingData? = withContext(Dispatchers.IO) {
+
+        try {
+
+            SupabaseClient.database
+                .from("orders")
+                .select {
+                    filter {
+                        eq("id", orderId)
                     }
                 }
-                order("created_at", Order.DESCENDING)
-            }
-            .decodeList()
-    }
+                .decodeSingleOrNull<OrderTrackingData>()
 
-    // Get single order by ID
-    suspend fun getOrderById(orderId: String): Map<String, Any>? = withContext(Dispatchers.IO) {
-        try {
-            SupabaseClient.database["orders"]
-                .select {
-                    filter { eq("id", orderId) }
-                }
-                .decodeSingleOrNull()
         } catch (e: Exception) {
+
+            e.printStackTrace()
             null
         }
     }
 
-    // Update order status
-    suspend fun updateOrderStatus(orderId: String, status: String) = withContext(Dispatchers.IO) {
-        SupabaseClient.database["orders"]
-            .update(
-                update = {
-                    this["status"] = status
-                    this["updated_at"] = Timestamp.now()
+    suspend fun updateOrderStatus(
+        orderId: String,
+        status: String
+    ) = withContext(Dispatchers.IO) {
+
+        try {
+
+            SupabaseClient.database
+                .from("orders")
+                .update(
+                    {
+                        set("status", status)
+                    }
+                ) {
+                    filter {
+                        eq("id", orderId)
+                    }
                 }
-            ) {
-                filter { eq("id", orderId) }
-            }
+
+        } catch (e: Exception) {
+
+            e.printStackTrace()
+        }
     }
 
-// ========== REVIEW FUNCTIONS ==========
+    // =========================================================
+    // REVIEW FUNCTIONS
+    // =========================================================
 
-    // Save a review
     suspend fun saveReview(
         orderId: String,
         productId: String,
         rating: Int,
         comment: String
     ) = withContext(Dispatchers.IO) {
-        val reviewId = UUID.randomUUID().toString()
-        val review = mapOf(
-            "id" to reviewId,
-            "order_id" to orderId,
-            "product_id" to productId,
-            "user_id" to currentUserId,
-            "rating" to rating,
-            "comment" to comment,
-            "created_at" to Timestamp.now()
-        )
-        SupabaseClient.database["reviews"].insert(review)
 
-        // Update product's seller rating (optional: average rating calculation)
+        try {
+
+            val review = mapOf(
+                "id" to UUID.randomUUID().toString(),
+                "order_id" to orderId,
+                "product_id" to productId,
+                "user_id" to currentUserId,
+                "rating" to rating,
+                "comment" to comment
+            )
+
+            SupabaseClient.database
+                .from("reviews")
+                .insert(review)
+
+        } catch (e: Exception) {
+
+            e.printStackTrace()
+        }
     }
 }

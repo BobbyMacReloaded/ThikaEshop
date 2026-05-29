@@ -9,5 +9,6 @@ data class Order(
     val status: String,
     val location: String,
     val date: String,
-    val isEscrowHeld: Boolean = false
+    val isEscrowHeld: Boolean = false,
+    val orderNumber: String
 )
