@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.thikaeshop.utils.SimplePrefs
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.PhoneAuthCredential
@@ -51,6 +52,11 @@ class LoginViewModel : ViewModel() {
 
     fun setActivity(activity: Activity) {
         currentActivity = activity
+    }
+    fun savePhoneNumber(phone: String, simplePrefs: SimplePrefs) {
+        viewModelScope.launch {
+            simplePrefs.savePhoneNumber(phone)
+        }
     }
 
     fun sendOtp(phoneNumber: String) {
@@ -133,6 +139,14 @@ class LoginViewModel : ViewModel() {
         verificationId = ""
         resendToken = null
     }
+    fun clearAll() {
+        _uiState.value = LoginUiState.Idle
+        currentPhoneNumber = ""
+        verificationId = ""
+        resendToken = null
+        currentActivity = null
+    }
+
 
     fun resendOtp() {
         val activity = currentActivity

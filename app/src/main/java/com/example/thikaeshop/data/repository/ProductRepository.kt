@@ -1,5 +1,6 @@
 package com.example.thikaeshop.data.repository
 
+import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.example.thikaeshop.data.models.OrderDisplay
 import com.example.thikaeshop.data.models.OrderInsert
@@ -7,6 +8,7 @@ import com.example.thikaeshop.data.models.OrderTrackingData
 import com.example.thikaeshop.data.models.Product
 import com.example.thikaeshop.data.models.UserProfile
 import com.example.thikaeshop.utils.SupabaseClient
+import com.google.firebase.Timestamp
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Order as PostgrestOrder
 import io.github.jan.supabase.storage.storage
@@ -30,6 +32,78 @@ class ProductRepository {
     // =========================================================
     // PRODUCT FUNCTIONS
     // =========================================================
+    // =========================================================
+// DSA - SORTING ALGORITHMS
+// =========================================================
+
+    // Quick Sort implementation for products by price
+    fun quickSortByPrice(products: List<Product>, ascending: Boolean = true): List<Product> {
+        if (products.size <= 1) return products
+
+        val pivot = products[products.size / 2]
+        val left = products.filter { if (ascending) it.price < pivot.price else it.price > pivot.price }
+        val middle = products.filter { it.price == pivot.price }
+        val right = products.filter { if (ascending) it.price > pivot.price else it.price < pivot.price }
+
+        return quickSortByPrice(left, ascending) + middle + quickSortByPrice(right, ascending)
+    }
+
+    // Merge Sort implementation for products by rating
+    fun mergeSortByRating(products: List<Product>, ascending: Boolean = true): List<Product> {
+        if (products.size <= 1) return products
+
+        val mid = products.size / 2
+        val left = mergeSortByRating(products.subList(0, mid), ascending)
+        val right = mergeSortByRating(products.subList(mid, products.size), ascending)
+
+        return merge(left, right, ascending)
+    }
+
+    private fun merge(left: List<Product>, right: List<Product>, ascending: Boolean): List<Product> {
+        var i = 0
+        var j = 0
+        val result = mutableListOf<Product>()
+
+        while (i < left.size && j < right.size) {
+            val condition = if (ascending) {
+                left[i].sellerRating <= right[j].sellerRating
+            } else {
+                left[i].sellerRating >= right[j].sellerRating
+            }
+
+            if (condition) {
+                result.add(left[i])
+                i++
+            } else {
+                result.add(right[j])
+                j++
+            }
+        }
+
+        result.addAll(left.subList(i, left.size))
+        result.addAll(right.subList(j, right.size))
+
+        return result
+    }
+
+    // Binary Search for product by ID (O(log n))
+    fun binarySearchById(products: List<Product>, targetId: String): Product? {
+        val sorted = products.sortedBy { it.id }
+        var left = 0
+        var right = sorted.size - 1
+
+        while (left <= right) {
+            val mid = left + (right - left) / 2
+            val comparison = sorted[mid].id.compareTo(targetId)
+
+            when {
+                comparison == 0 -> return sorted[mid]
+                comparison < 0 -> left = mid + 1
+                else -> right = mid - 1
+            }
+        }
+        return null
+    }
 
     suspend fun uploadProductImageBytes(
         imageBytes: ByteArray,
@@ -586,6 +660,115 @@ class ProductRepository {
         } catch (e: Exception) {
 
             e.printStackTrace()
+        }
+    }
+    // Track when user views a product
+    suspend fun trackProductView(userId: String, productId: String) = withContext(Dispatchers.IO) {
+        try {
+            SupabaseClient.database.from("product_views").insert(
+                mapOf(
+                    "user_id" to userId,
+                    "product_id" to productId,
+                    "viewed_at" to Timestamp.now()
+                )
+            )
+        } catch (e: Exception) {
+            // Silently fail - don't break the app for tracking
+            Log.e("ProductRepo", "Failed to track view: ${e.message}")
+        }
+    }
+
+    // Track when user clicks/purchases
+    suspend fun trackInteraction(userId: String, productId: String, type: String) = withContext(Dispatchers.IO) {
+        try {
+            SupabaseClient.database.from("user_interactions").insert(
+                mapOf(
+                    "user_id" to userId,
+                    "product_id" to productId,
+                    "interaction_type" to type,
+                    "created_at" to Timestamp.now()
+                )
+            )
+        } catch (e: Exception) {
+            Log.e("ProductRepo", "Failed to track interaction: ${e.message}")
+        }
+    }
+
+    // Get personalized recommendations for a user
+    suspend fun getRecommendationsForUser(userId: String, limit: Int = 10): List<Product> = withContext(Dispatchers.IO) {
+        try {
+            // Get product IDs that the user has viewed/purchased
+            val userInteractions = SupabaseClient.database.from("user_interactions")
+                .select {
+                    filter { eq("user_id", userId) }
+                }
+                .decodeList<Map<String, Any>>()
+
+            val userProductIds = userInteractions
+                .mapNotNull { it["product_id"] as? String }
+                .distinct()
+
+            if (userProductIds.isEmpty()) {
+                // No history - return popular products
+                return@withContext getPopularProducts(limit)
+            }
+
+            // Get products from same categories as user's history
+            val allProducts = getAllProducts()
+            val userProducts = allProducts.filter { it.id in userProductIds }
+            val categories = userProducts.map { it.category }.distinct()
+
+            if (categories.isEmpty()) {
+                return@withContext getPopularProducts(limit)
+            }
+
+            // Recommend products in same categories (excluding already viewed/purchased)
+            val recommendations = allProducts.filter { product ->
+                product.category in categories &&
+                        product.id !in userProductIds &&
+                        product.isAvailable
+            }
+
+            recommendations.take(limit)
+        } catch (e: Exception) {
+            Log.e("ProductRepo", "Failed to get recommendations: ${e.message}")
+            getPopularProducts(limit)
+        }
+    }
+    // Get popular products (fallback when no user history)
+    // Get popular products (fallback when no user history)
+    suspend fun getPopularProducts(limit: Int = 10): List<Product> = withContext(Dispatchers.IO) {
+        try {
+            // Get most viewed products - using simpler approach
+            val views = SupabaseClient.database.from("product_views")
+                .select {
+                    filter { }
+                }
+                .decodeList<Map<String, Any>>()
+
+            // Count views per product
+            val viewCounts = mutableMapOf<String, Int>()
+            views.forEach { view ->
+                val productId = view["product_id"] as? String
+                if (productId != null) {
+                    viewCounts[productId] = (viewCounts[productId] ?: 0) + 1
+                }
+            }
+
+            // Sort by view count and get top products
+            val popularIds = viewCounts.toList()
+                .sortedByDescending { it.second }
+                .take(limit)
+                .map { it.first }
+
+            if (popularIds.isEmpty()) {
+                return@withContext getAllProducts().take(limit)
+            }
+
+            getAllProducts().filter { it.id in popularIds }.take(limit)
+        } catch (e: Exception) {
+            Log.e("ProductRepo", "Failed to get popular products: ${e.message}")
+            getAllProducts().take(limit)
         }
     }
 }

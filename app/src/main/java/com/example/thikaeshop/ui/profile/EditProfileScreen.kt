@@ -238,7 +238,7 @@ fun EditProfileScreen(
                             focusedTextColor = EShopColors.White,
                             unfocusedTextColor = EShopColors.White
                         ),
-                        readOnly = true,
+                        readOnly = false,
                         supportingText = {
                             Text(
                                 text = "Student ID cannot be changed. Contact support for corrections.",

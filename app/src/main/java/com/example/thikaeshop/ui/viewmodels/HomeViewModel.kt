@@ -1,5 +1,6 @@
 package com.example.thikaeshop.ui.viewmodels
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.thikaeshop.data.models.Product  // ← Make sure this import exists
@@ -26,8 +27,22 @@ class HomeViewModel : ViewModel() {
 
     init {
         loadProducts()
+        loadRecommendations()
     }
+    private val _recommendations = MutableStateFlow<List<Product>>(emptyList())
+    val recommendations: StateFlow<List<Product>> = _recommendations
 
+    fun loadRecommendations() {
+        viewModelScope.launch {
+            try {
+                val userId = repository.currentUserId
+                val recs = repository.getRecommendationsForUser(userId, 6)
+                _recommendations.value = recs
+            } catch (e: Exception) {
+                Log.e("HomeVM", "Failed to load recommendations: ${e.message}")
+            }
+        }
+    }
     fun loadProducts() {
         viewModelScope.launch {
             _uiState.value = HomeUiState.Loading
@@ -80,5 +95,39 @@ class HomeViewModel : ViewModel() {
                 _uiState.value = HomeUiState.Error(e.message ?: "Filter failed")
             }
         }
+    }
+    // =========================================================
+// DSA SORTING FUNCTIONS
+// =========================================================
+
+    /**
+     * Quick Sort for products by price
+     * Delegates to repository's implementation
+     */
+    fun quickSortByPrice(products: List<Product>, ascending: Boolean): List<Product> {
+        return repository.quickSortByPrice(products, ascending)
+    }
+
+    /**
+     * Merge Sort for products by rating
+     * Delegates to repository's implementation
+     */
+    fun mergeSortByRating(products: List<Product>, ascending: Boolean): List<Product> {
+        return repository.mergeSortByRating(products, ascending)
+    }
+
+    /**
+     * Binary Search for product by ID
+     */
+    fun binarySearchProduct(productId: String): Product? {
+        val currentState = _uiState.value
+        if (currentState is HomeUiState.Success) {
+            return repository.binarySearchById(currentState.products, productId)
+        }
+        return null
+    }
+    fun clearData() {
+        _uiState.value = HomeUiState.Loading
+        _recommendations.value = emptyList()
     }
 }

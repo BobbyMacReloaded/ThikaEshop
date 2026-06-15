@@ -35,7 +35,10 @@ class ProfileViewModel : ViewModel() {
     init {
         loadProfileData()
     }
-
+    fun clearData() {
+        _uiState.value = ProfileUiState.Loading
+        _error.value = null
+    }
     fun loadProfileData() {
         viewModelScope.launch {
             _uiState.value = ProfileUiState.Loading

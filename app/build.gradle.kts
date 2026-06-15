@@ -44,6 +44,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -79,6 +80,19 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:realtime-kt")
     implementation("io.ktor:ktor-client-android:3.5.0")
     implementation(libs.kotlinx.serialization.json)
+    dependencies {
+        // ... existing dependencies
+
+        // Retrofit for API calls
+        implementation("com.squareup.retrofit2:retrofit:3.0.0")
+        implementation("com.squareup.retrofit2:converter-gson:3.0.0")
+        implementation("com.squareup.okhttp3:logging-interceptor:5.3.2")
+
+        implementation("androidx.datastore:datastore-preferences:1.2.1")
+        // Kotlin Coroutines (you likely already have this)
+        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
+        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+    }
 
 
 }

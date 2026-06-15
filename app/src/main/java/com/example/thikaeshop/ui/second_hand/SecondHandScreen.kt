@@ -1,6 +1,7 @@
 package com.example.thikaeshop.ui.second_hand
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -12,7 +13,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,8 +26,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.thikaeshop.ui.components.SearchBar
 import com.example.thikaeshop.ui.components.ProductCard
+import com.example.thikaeshop.ui.components.SearchBar
 import com.example.thikaeshop.ui.theme.EShopColors
 import com.example.thikaeshop.ui.viewmodels.HomeUiState
 import com.example.thikaeshop.ui.viewmodels.HomeViewModel
@@ -41,23 +43,53 @@ fun StudentExchangeScreen(
     var searchText by remember { mutableStateOf(TextFieldValue("")) }
     var selectedCondition by remember { mutableStateOf("All") }
     var showFilterDialog by remember { mutableStateOf(false) }
+    var showSortDialog by remember { mutableStateOf(false) }
+    var sortOption by remember { mutableStateOf("Default") }
+    var priceRange by remember { mutableStateOf("All Prices") }
+
     val uiState by viewModel.uiState.collectAsState()
 
     val conditions = listOf("All", "Like New", "Good", "Fair")
+    val sortOptions = listOf("Default", "Price: Low to High", "Price: High to Low", "Rating: High to Low")
+    val priceRanges = listOf("All Prices", "Under KSh 500", "KSh 500 - 2000", "Above KSh 2000")
 
-    // Filter to show only SECOND-HAND items for Student Exchange
-    val secondHandOnly = when (uiState) {
-        is HomeUiState.Success -> (uiState as HomeUiState.Success).products.filter { it.isSecondHand }
+    // Get products from ViewModel and filter for second-hand only
+    val allProducts = when (uiState) {
+        is HomeUiState.Success -> (uiState as HomeUiState.Success).products
         else -> emptyList()
     }
 
-    // Further filter by search and condition
-    val filteredProducts = secondHandOnly.filter { product ->
-        val matchesSearch = searchText.text.isEmpty() ||
+    // Step 1: Filter to show only SECOND-HAND items
+    val secondHandOnly = allProducts.filter { it.isSecondHand }
+
+    // Step 2: Apply price filter
+    val priceFiltered = secondHandOnly.filter { product ->
+        when (priceRange) {
+            "Under KSh 500" -> product.price < 500
+            "KSh 500 - 2000" -> product.price in 500..2000
+            "Above KSh 2000" -> product.price > 2000
+            else -> true
+        }
+    }
+
+    // Step 3: Apply search filter
+    val searchFiltered = priceFiltered.filter { product ->
+        searchText.text.isEmpty() ||
                 product.title.contains(searchText.text, ignoreCase = true) ||
                 product.description.contains(searchText.text, ignoreCase = true)
-        val matchesCondition = selectedCondition == "All" || product.condition == selectedCondition
-        matchesSearch && matchesCondition
+    }
+
+    // Step 4: Apply condition filter
+    val conditionFiltered = searchFiltered.filter { product ->
+        selectedCondition == "All" || product.condition.equals(selectedCondition, ignoreCase = true)
+    }
+
+    // Step 5: Apply sorting
+    val sortedProducts = when (sortOption) {
+        "Price: Low to High" -> conditionFiltered.sortedBy { it.price }
+        "Price: High to Low" -> conditionFiltered.sortedByDescending { it.price }
+        "Rating: High to Low" -> conditionFiltered.sortedByDescending { it.sellerRating }
+        else -> conditionFiltered
     }
 
     Scaffold(
@@ -80,6 +112,9 @@ fun StudentExchangeScreen(
                     IconButton(onClick = onSellClick) {
                         Icon(Icons.Default.Add, contentDescription = "Sell", tint = EShopColors.Gold)
                     }
+                    IconButton(onClick = { showSortDialog = true }) {
+                        Icon(Icons.Default.Sort, contentDescription = "Sort", tint = EShopColors.Gold)
+                    }
                     IconButton(onClick = { showFilterDialog = true }) {
                         Icon(Icons.Default.FilterList, contentDescription = "Filter", tint = EShopColors.Gold)
                     }
@@ -93,9 +128,7 @@ fun StudentExchangeScreen(
         when (uiState) {
             is HomeUiState.Loading -> {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
+                    modifier = Modifier.fillMaxSize().padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(color = EShopColors.Orange)
@@ -103,9 +136,7 @@ fun StudentExchangeScreen(
             }
             is HomeUiState.Error -> {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
+                    modifier = Modifier.fillMaxSize().padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -137,7 +168,7 @@ fun StudentExchangeScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                Icons.Default.Security,
+                                Icons.Default.Lock,
                                 contentDescription = null,
                                 tint = EShopColors.Gold,
                                 modifier = Modifier.size(20.dp)
@@ -181,8 +212,50 @@ fun StudentExchangeScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
+                    // Active Filters Bar
+                    if (priceRange != "All Prices" || sortOption != "Default" || selectedCondition != "All") {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (priceRange != "All Prices") {
+                                AssistChip(
+                                    onClick = { priceRange = "All Prices" },
+                                    label = { Text("💰 $priceRange", fontSize = 11.sp) },
+                                    leadingIcon = { Text("✖️", fontSize = 10.sp) }
+                                )
+                            }
+                            if (sortOption != "Default") {
+                                AssistChip(
+                                    onClick = { sortOption = "Default" },
+                                    label = { Text("📊 $sortOption", fontSize = 11.sp) },
+                                    leadingIcon = { Text("✖️", fontSize = 10.sp) }
+                                )
+                            }
+                            if (selectedCondition != "All") {
+                                AssistChip(
+                                    onClick = { selectedCondition = "All" },
+                                    label = { Text("🏷️ Condition: $selectedCondition", fontSize = 11.sp) },
+                                    leadingIcon = { Text("✖️", fontSize = 10.sp) }
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    // Products Count
+                    Text(
+                        text = "Showing ${sortedProducts.size} second-hand items",
+                        fontSize = 12.sp,
+                        color = EShopColors.White50,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     // Products Grid
-                    if (filteredProducts.isEmpty()) {
+                    if (sortedProducts.isEmpty()) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
@@ -219,7 +292,7 @@ fun StudentExchangeScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            items(filteredProducts) { product ->
+                            items(sortedProducts) { product ->
                                 ProductCard(
                                     product = product,
                                     onClick = { onProductClick(product.id) }
@@ -232,21 +305,79 @@ fun StudentExchangeScreen(
         }
     }
 
-    // Filter Dialog
+    // Sort Dialog
+    if (showSortDialog) {
+        AlertDialog(
+            onDismissRequest = { showSortDialog = false },
+            title = { Text("Sort Products", color = EShopColors.White) },
+            text = {
+                Column {
+                    sortOptions.forEach { option ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    sortOption = option
+                                    showSortDialog = false
+                                }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = sortOption == option,
+                                onClick = {
+                                    sortOption = option
+                                    showSortDialog = false
+                                },
+                                colors = RadioButtonDefaults.colors(selectedColor = EShopColors.Orange)
+                            )
+                            Text(option, color = EShopColors.White, modifier = Modifier.padding(start = 8.dp))
+                        }
+                        if (option != sortOptions.last()) {
+                            HorizontalDivider(color = EShopColors.White20)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSortDialog = false }) {
+                    Text("Cancel", color = EShopColors.Orange)
+                }
+            },
+            containerColor = EShopColors.DarkCard
+        )
+    }
+
+    // Price Filter Dialog
     if (showFilterDialog) {
         AlertDialog(
             onDismissRequest = { showFilterDialog = false },
             title = { Text("Filter by Price", color = EShopColors.White) },
             text = {
                 Column {
-                    listOf("All Prices", "Under KSh 500", "KSh 500 - 2000", "Above KSh 2000").forEach { range ->
-                        TextButton(
-                            onClick = {
-                                showFilterDialog = false
-                            },
-                            modifier = Modifier.fillMaxWidth()
+                    priceRanges.forEach { range ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    priceRange = range
+                                    showFilterDialog = false
+                                }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(range, color = EShopColors.White)
+                            RadioButton(
+                                selected = priceRange == range,
+                                onClick = {
+                                    priceRange = range
+                                    showFilterDialog = false
+                                },
+                                colors = RadioButtonDefaults.colors(selectedColor = EShopColors.Orange)
+                            )
+                            Text(range, color = EShopColors.White, modifier = Modifier.padding(start = 8.dp))
+                        }
+                        if (range != priceRanges.last()) {
+                            HorizontalDivider(color = EShopColors.White20)
                         }
                     }
                 }

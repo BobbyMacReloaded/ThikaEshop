@@ -9,7 +9,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.thikaeshop.ui.admin.AdminPanelScreen
@@ -19,8 +24,8 @@ import com.example.thikaeshop.ui.chat.ChatDetailScreen
 import com.example.thikaeshop.ui.chat.ChatListScreen
 import com.example.thikaeshop.ui.components.BottomNavBar
 import com.example.thikaeshop.ui.market_place.MarketplaceScreen
-import com.example.thikaeshop.ui.ordertracking.OrderTrackingScreen
 import com.example.thikaeshop.ui.orders.OrdersScreen
+import com.example.thikaeshop.ui.ordertracking.OrderTrackingScreen
 import com.example.thikaeshop.ui.pindrop.PinDropScreen
 import com.example.thikaeshop.ui.productDetails.ProductDetailScreen
 import com.example.thikaeshop.ui.profile.EditProfileScreen
@@ -30,16 +35,24 @@ import com.example.thikaeshop.ui.second_hand.StudentExchangeScreen
 import com.example.thikaeshop.ui.sell.SellScreen
 import com.example.thikaeshop.ui.theme.ThikaEshopTheme
 import com.example.thikaeshop.ui.verification.StudentVerificationScreen
-import com.example.thikaeshop.ui.viewmodels.*
+import com.example.thikaeshop.ui.viewmodels.HomeViewModel
+import com.example.thikaeshop.ui.viewmodels.LoginViewModel
+import com.example.thikaeshop.ui.viewmodels.ProfileViewModel
+import com.example.thikaeshop.ui.viewmodels.StudentVerificationViewModel
 import com.example.thikaeshop.utils.ChatHelper
+import com.example.thikaeshop.utils.SimplePrefs
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    lateinit var simplePrefs: SimplePrefs
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        simplePrefs = SimplePrefs(this)
         setContent {
             ThikaEshopTheme {
+
                 var isLoggedIn by remember { mutableStateOf(false) }
                 var showAdminPanel by remember { mutableStateOf(false) }
                 var selectedTab by remember { mutableIntStateOf(0) }
@@ -150,7 +163,8 @@ class MainActivity : ComponentActivity() {
                             onVerificationComplete = {
                                 showVerification = false
                             },
-                            viewModel = studentVerificationViewModel
+                            viewModel = studentVerificationViewModel,
+
                         )
                     }
                     else if (showRating) {
@@ -182,9 +196,11 @@ class MainActivity : ComponentActivity() {
                                         onProductClick = { productId ->
                                             selectedProductId = productId
                                         },
-                                        onSellClick = { showSellScreen = true },
+                                        // REMOVED onSellClick - HomeScreen handles its own navigation
                                         onPinDropClick = { showPinDrop = true },
                                         onCategoryClick = { },
+                                        onProfileClick = { selectedTab = 4 },  // ← Navigate to Profile tab (index 4)
+                                        onSeeAllClick = { selectedTab = 2 },   // ← Navigate to Marketplace tab (index 2)
                                         onChatClick = { showChatList = true },
                                         onChatWithSeller = { sellerId, sellerName ->
                                             coroutineScope.launch {
@@ -251,18 +267,38 @@ class MainActivity : ComponentActivity() {
                                                 onBackClick = { showEditProfile = false },
                                                 onSaveComplete = {
                                                     showEditProfile = false
+                                                    profileViewModel.loadProfileData()
                                                 }
                                             )
                                         } else {
                                             ProfileScreen(
                                                 onBackClick = { selectedTab = 0 },
                                                 onLogout = {
+                                                    // Clear Firebase Auth
+                                                  FirebaseAuth.getInstance().signOut()
+
+                                                    // Clear ViewModels
+                                                    loginViewModel.clearAll()
+                                                    profileViewModel.clearData()
+                                                    homeViewModel.clearData()
+
+                                                    // Reset ALL navigation states
                                                     isLoggedIn = false
                                                     selectedTab = 0
+                                                    showEditProfile = false
+                                                    showVerification = false
+                                                    showSellScreen = false
+                                                    showChatList = false
+                                                    showChatDetail = false
+                                                    showPinDrop = false
+                                                    showOrderTracking = false
+                                                    showRating = false
+                                                    selectedProductId = null
+                                                    selectedOrderId = ""
                                                 },
                                                 onVerificationClick = { showVerification = true },
-                                                onSellClick = { showSellScreen = true },  // ← ADD THIS
-                                                onEditProfileClick = { showEditProfile = true }
+                                                onEditProfileClick = { showEditProfile = true },
+                                                onSellClick = { showSellScreen = true }  // ← Add this
                                             )
                                         }
                                     }
@@ -278,7 +314,9 @@ class MainActivity : ComponentActivity() {
                             showAdminPanel = true
                         },
                         onGuestSuccess = { isLoggedIn = true },
-                        viewModel = loginViewModel
+                        viewModel = loginViewModel,
+                        simplePrefs = simplePrefs
+
                     )
                 }
             }

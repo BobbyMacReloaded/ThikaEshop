@@ -38,15 +38,17 @@ import kotlinx.coroutines.delay
 @Composable
 fun HomeScreen(
     onProductClick: (String) -> Unit = {},
-    onSellClick: () -> Unit = {},
     onPinDropClick: () -> Unit = {},
     onCategoryClick: (String) -> Unit = {},
     onChatClick: () -> Unit = {},
+    onProfileClick: () -> Unit = {},  // ← ADD THIS - for profile icon
+    onSeeAllClick: () -> Unit = {},     // ← ADD THIS - for "See All" button
     onChatWithSeller: (String, String) -> Unit = { _, _ -> },
     viewModel: HomeViewModel = HomeViewModel()
 ) {
     var searchText by remember { mutableStateOf(TextFieldValue("")) }
     val uiState by viewModel.uiState.collectAsState()
+    val recommendations by viewModel.recommendations.collectAsState()
 
     var showSellScreen by remember { mutableStateOf(false) }
     var selectedProductId by remember { mutableStateOf<String?>(null) }
@@ -60,7 +62,7 @@ fun HomeScreen(
         SellScreen(
             onSubmit = {
                 showSellScreen = false
-                viewModel.loadProducts() // ← Refresh products after posting
+                viewModel.loadProducts()
             },
             onBackClick = { showSellScreen = false }
         )
@@ -122,7 +124,6 @@ fun HomeScreen(
                 is HomeUiState.Success -> {
                     val state = uiState as HomeUiState.Success
 
-                    // LazyColumn so the whole screen scrolls together
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
@@ -157,7 +158,8 @@ fun HomeScreen(
                                         color = EShopColors.White50
                                     )
                                 }
-                                IconButton(onClick = { }) {
+                                // Profile Icon - NOW WORKS
+                                IconButton(onClick = onProfileClick) {
                                     Icon(
                                         Icons.Default.Person,
                                         contentDescription = "Profile",
@@ -208,11 +210,12 @@ fun HomeScreen(
                                         fontWeight = FontWeight.Bold,
                                         color = EShopColors.White
                                     )
+                                    // "See All" button - NOW WORKS
                                     Text(
                                         text = "See All",
                                         fontSize = 12.sp,
                                         color = EShopColors.Orange,
-                                        modifier = Modifier.clickable { }
+                                        modifier = Modifier.clickable { onSeeAllClick() }
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(12.dp))
@@ -242,6 +245,28 @@ fun HomeScreen(
                                 onChatClick = onChatClick
                             )
                             Spacer(modifier = Modifier.height(24.dp))
+                        }
+
+                        // ── 🤖 AI RECOMMENDATIONS ─────────────────────────────────
+                        if (recommendations.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "🤖 Recommended for You",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EShopColors.White
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                    items(recommendations) { product ->
+                                        ProductCard(
+                                            product = product,
+                                            onClick = { selectedProductId = product.id }
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(24.dp))
+                            }
                         }
 
                         // ── All products header ─────────────────────────────────
@@ -283,7 +308,6 @@ fun HomeScreen(
                                 }
                             }
                         } else {
-                            // Pair products into rows of 2
                             val rows = state.products.chunked(2)
                             items(rows) { row ->
                                 Row(
@@ -298,7 +322,6 @@ fun HomeScreen(
                                             )
                                         }
                                     }
-                                    // If odd number, fill the second slot with empty space
                                     if (row.size == 1) {
                                         Spacer(modifier = Modifier.weight(1f))
                                     }
@@ -307,7 +330,7 @@ fun HomeScreen(
                             }
                         }
 
-                        item { Spacer(modifier = Modifier.height(80.dp)) } // bottom nav clearance
+                        item { Spacer(modifier = Modifier.height(80.dp)) }
                     }
                 }
             }
