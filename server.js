@@ -2,14 +2,30 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 
-const INTASEND_API_URL = "https://sandbox.intasend.com/api/v1/";
-const INTASEND_SECRET_KEY = "ISPubKey_test_397772e9-4a7b-4646-a7c3-9f8f7bf2e39b"; // ← Replace with your key
+// Health check endpoint (Render uses this)
+app.get('/', (req, res) => {
+    res.send('✅ M-Pesa backend is running!');
+});
 
-// Endpoint your Android app will call
+app.get('/test', (req, res) => {
+    res.json({ status: 'ok', message: 'Server is working' });
+});
+
+const INTASEND_API_URL = "https://sandbox.intasend.com/api/v1/";
+const INTASEND_SECRET_KEY = "ISSecretKey_test_ee130c89-0a4f-43e3-b8f2-017f00dc8117";
+
+// Store payment statuses
+const payments = {};
+
 app.post('/initiate-payment', async (req, res) => {
+    console.log("Received initiate-payment request:", req.body);
+    
     const { phone, amount, orderId } = req.body;
     
-    // Format phone number (07XX → 2547XX)
+    if (!phone || !amount || !orderId) {
+        return res.status(400).json({ error: "Missing phone, amount, or orderId" });
+    }
+    
     let formattedPhone = phone.replace(/[^0-9]/g, '');
     if (formattedPhone.startsWith('0')) {
         formattedPhone = '254' + formattedPhone.substring(1);
@@ -37,38 +53,55 @@ app.post('/initiate-payment', async (req, res) => {
 
         const data = await response.json();
         console.log("IntaSend response:", data);
-        res.json(data);
+        
+        if (data.tracking_id) {
+            payments[orderId] = {
+                tracking_id: data.tracking_id,
+                status: 'pending',
+                initiated_at: new Date().toISOString()
+            };
+            res.json({ tracking_id: data.tracking_id, success: true });
+        } else {
+            res.json({ error: data.message || "Payment initiation failed", success: false });
+        }
     } catch (error) {
         console.error("Error:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: error.message, success: false });
     }
 });
 
-// Callback endpoint where IntaSend sends payment results
 app.post('/payment-callback', (req, res) => {
     const { invoice } = req.body;
     console.log("Payment callback received:", invoice);
     
     if (invoice && invoice.api_ref) {
-        // Store payment result
         payments[invoice.api_ref] = {
             ...payments[invoice.api_ref],
             status: invoice.state === 'COMPLETE' ? 'success' : 'failed',
             mpesa_receipt: invoice.mpesa_receipt_code,
             completed_at: new Date().toISOString()
         };
-        
-        // If this is a subscription payment (api_ref starts with "SUB-")
-        if (invoice.api_ref.startsWith("SUB-")) {
-            // TODO: Call a Supabase edge function to activate subscription
-            // Or call your database directly
-            console.log(`Subscription payment for: ${invoice.api_ref}`);
-        }
     }
     
     res.json({ status: 'ok' });
 });
 
-app.listen(3000, () => {
-    console.log('Server running on port 3000');
+app.get('/payment-status/:orderId', (req, res) => {
+    const { orderId } = req.params;
+    const payment = payments[orderId];
+    
+    if (payment) {
+        res.json({ 
+            orderId: orderId,
+            status: payment.status,
+            tracking_id: payment.tracking_id
+        });
+    } else {
+        res.json({ orderId: orderId, status: 'pending' });
+    }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
