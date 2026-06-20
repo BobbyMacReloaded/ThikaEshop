@@ -20,7 +20,11 @@ class ProductDetailViewModel : ViewModel() {
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
-
+    fun trackProductView(userId: String, productId: String) {
+        viewModelScope.launch {
+            repository.trackProductView(userId, productId)
+        }
+    }
     fun loadProduct(productId: String) {
         viewModelScope.launch {
             _isLoading.value = true
