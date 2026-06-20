@@ -49,9 +49,22 @@ app.post('/payment-callback', (req, res) => {
     const { invoice } = req.body;
     console.log("Payment callback received:", invoice);
     
-    // invoice.state will be "COMPLETE" or "FAILED"
-    // invoice.api_ref is your orderId
-    // TODO: Update your Supabase orders table here
+    if (invoice && invoice.api_ref) {
+        // Store payment result
+        payments[invoice.api_ref] = {
+            ...payments[invoice.api_ref],
+            status: invoice.state === 'COMPLETE' ? 'success' : 'failed',
+            mpesa_receipt: invoice.mpesa_receipt_code,
+            completed_at: new Date().toISOString()
+        };
+        
+        // If this is a subscription payment (api_ref starts with "SUB-")
+        if (invoice.api_ref.startsWith("SUB-")) {
+            // TODO: Call a Supabase edge function to activate subscription
+            // Or call your database directly
+            console.log(`Subscription payment for: ${invoice.api_ref}`);
+        }
+    }
     
     res.json({ status: 'ok' });
 });
