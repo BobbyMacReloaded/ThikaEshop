@@ -1,5 +1,6 @@
 package com.example.thikaeshop.ui.productDetails
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -82,7 +83,25 @@ fun ProductDetailScreen(
 
     var quantity by remember { mutableIntStateOf(1) }
     var showCheckout by remember { mutableStateOf(false) }
+// In ProductDetailScreen.kt - Add this inside the LaunchedEffect
 
+    LaunchedEffect(productId) {
+        if (productId.isNotEmpty()) {
+            viewModel.loadProduct(productId)
+        }
+    }
+
+// ====== ADD THIS TO DEBUG PRODUCT DATA ======
+    LaunchedEffect(product) {
+        product?.let {
+            Log.d("ProductDetail", "📦 Product Data:")
+            Log.d("ProductDetail", "   ID: '${it.id}'")
+            Log.d("ProductDetail", "   Title: '${it.title}'")
+            Log.d("ProductDetail", "   Seller ID: '${it.sellerId}'")
+            Log.d("ProductDetail", "   Seller Name: '${it.sellerName}'")
+            Log.d("ProductDetail", "   Is Second Hand: ${it.isSecondHand}")
+        }
+    }
     LaunchedEffect(productId) {
         if (productId.isNotEmpty()) {
             viewModel.loadProduct(productId)
@@ -212,23 +231,53 @@ fun ProductDetailScreen(
                                     Spacer(modifier = Modifier.height(12.dp))
                                 }
 
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                // ====== SELLER INFO WITH CHAT BUTTON ======
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Box(
-                                        modifier = Modifier.size(40.dp).clip(CircleShape).background(EShopColors.Orange),
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                            .background(EShopColors.Orange),
                                         contentAlignment = Alignment.Center
-                                    ) { Text("👤", fontSize = 20.sp) }
+                                    ) {
+                                        Text("👤", fontSize = 20.sp)
+                                    }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
-                                        Text(product!!.sellerName ?: "", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = EShopColors.White)
-                                        Text("${product!!.sellerRating} ★", fontSize = 11.sp, color = EShopColors.White50)
+                                        Text(
+                                            product!!.sellerName ?: "Unknown Seller",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = EShopColors.White
+                                        )
+                                        Text(
+                                            "${product!!.sellerRating ?: 0.0} ★",
+                                            fontSize = 11.sp,
+                                            color = EShopColors.White50
+                                        )
                                     }
                                     Spacer(modifier = Modifier.weight(1f))
+
+                                    // ====== CHAT BUTTON ======
                                     OutlinedButton(
-                                        onClick = { onContactSellerClick(product!!.sellerId ?: "", product!!.sellerName ?: "") },
+                                        onClick = {
+                                            val sellerId = product!!.sellerId ?: ""
+                                            val sellerName = product!!.sellerName ?: "Seller"
+                                            if (sellerId.isNotEmpty()) {
+                                                onContactSellerClick(sellerId, sellerName)
+                                            }
+                                        },
                                         shape = RoundedCornerShape(20.dp),
                                         modifier = Modifier.height(32.dp)
                                     ) {
-                                        Icon(Icons.AutoMirrored.Filled.Chat, modifier = Modifier.size(16.dp), contentDescription = "")
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.Chat,
+                                            modifier = Modifier.size(16.dp),
+                                            contentDescription = ""
+                                        )
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text("Chat", fontSize = 12.sp)
                                     }

@@ -1,6 +1,9 @@
 package com.example.thikaeshop.ui.profile
 
+import android.util.Log // For Event Logging
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -35,6 +39,16 @@ import com.example.thikaeshop.ui.editlisting.EditListingScreen
 import com.example.thikaeshop.ui.theme.EShopColors
 import com.example.thikaeshop.ui.viewmodels.ProfileUiState
 import com.example.thikaeshop.ui.viewmodels.ProfileViewModel
+import kotlinx.coroutines.delay
+
+// =====================================================================
+// 1. CLASS-BASED VALIDATOR (Refactored to Boolean for Bulletproof Logic)
+// =====================================================================
+class ProfileValidator {
+    fun isDeletionNotesValid(notes: String): Boolean {
+        return notes.length >= 3
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,17 +58,31 @@ fun ProfileScreen(
     onVerificationClick: () -> Unit = {},
     onEditProfileClick: () -> Unit = {},
     onSellClick: () -> Unit = {},
+    onSubscriptionClick: () -> Unit = {},
     viewModel: ProfileViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("My Listings", "Saved Landmarks")
 
-    // ========== ADD THESE STATES FOR EDIT/DELETE ==========
     var showEditListing by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var selectedProduct by remember { mutableStateOf<Product?>(null) }
     var selectedListingToDelete by remember { mutableStateOf("") }
+    var loadingTimeout by remember { mutableStateOf(false) }
+
+    // State validation helper variables
+    var deleteReason by remember { mutableStateOf("") }
+    val validator = remember { ProfileValidator() }
+
+    LaunchedEffect(uiState) {
+        if (uiState is ProfileUiState.Loading) {
+            delay(8000)
+            loadingTimeout = true
+        } else {
+            loadingTimeout = false
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -78,7 +106,6 @@ fun ProfileScreen(
             )
         }
     ) { paddingValues ->
-        // ========== SHOW EDIT SCREEN IF NEEDED ==========
         if (showEditListing && selectedProduct != null) {
             EditListingScreen(
                 listingId = selectedProduct!!.id,
@@ -103,26 +130,56 @@ fun ProfileScreen(
                             .padding(paddingValues),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = EShopColors.Orange)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = EShopColors.Orange)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "Loading profile...",
+                                color = EShopColors.White50,
+                                fontSize = 14.sp
+                            )
+                        }
                     }
                 }
                 is ProfileUiState.Success -> {
                     val state = uiState as ProfileUiState.Success
                     val userProfile = state.userProfile
-                    val myListings = state.myListings  // List<Product>
+                    val myListings = state.myListings
+                    val subscription = state.subscription
 
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(Brush.verticalGradient(listOf(EShopColors.DarkBg, EShopColors.DarkCard)))
                             .padding(paddingValues)
+                            // =================================================================
+                            // 2. TOUCH GESTURE HANDLING (Swipe to switch tabs)
+                            // =================================================================
+                            .pointerInput(Unit) {
+                                detectDragGestures(
+                                    onDrag = { change, dragAmount ->
+                                        change.consume()
+                                        // Swipe Left detector to switch to Saved Landmarks tab
+                                        if (dragAmount.x < -20 && selectedTab == 0) {
+                                            Log.d("GestureHandler", "Swipe Left Detected")
+                                            selectedTab = 1
+                                        }
+                                        // Swipe Right detector to return to My Listings tab
+                                        else if (dragAmount.x > 20 && selectedTab == 1) {
+                                            Log.d("GestureHandler", "Swipe Right Detected")
+                                            selectedTab = 0
+                                        }
+                                    }
+                                )
+                            }
                     ) {
-                        // Profile Header
                         item {
-                            ProfileHeader(userProfile = userProfile)
+                            ProfileHeader(
+                                userProfile = userProfile,
+                                subscription = subscription
+                            )
                         }
 
-                        // Stats Row
                         item {
                             Row(
                                 modifier = Modifier
@@ -165,7 +222,6 @@ fun ProfileScreen(
                             Spacer(modifier = Modifier.height(16.dp))
                         }
 
-                        // Tab Row
                         item {
                             TabRow(
                                 selectedTabIndex = selectedTab,
@@ -187,7 +243,6 @@ fun ProfileScreen(
                             }
                         }
 
-                        // Tab Content
                         when (selectedTab) {
                             0 -> {
                                 if (myListings.isEmpty()) {
@@ -197,7 +252,7 @@ fun ProfileScreen(
                                             title = "No Listings",
                                             message = "Sell your first item to see it here",
                                             buttonText = "Start Selling",
-                                            onButtonClick = { onSellClick.invoke() }  // ← Use the callback
+                                            onButtonClick = { onSellClick.invoke() }
                                         )
                                     }
                                 } else {
@@ -242,7 +297,6 @@ fun ProfileScreen(
                             Spacer(modifier = Modifier.height(8.dp))
                         }
 
-                        // Settings Section
                         item {
                             Card(
                                 modifier = Modifier
@@ -258,55 +312,49 @@ fun ProfileScreen(
                                         subtitle = "Update your personal information",
                                         onClick = onEditProfileClick
                                     )
-                                    HorizontalDivider(
-                                        Modifier,
-                                        DividerDefaults.Thickness,
-                                        color = EShopColors.White20
-                                    )
+                                    HorizontalDivider(Modifier, DividerDefaults.Thickness, color = EShopColors.White20)
                                     ProfileMenuItem(
                                         icon = Icons.Default.Settings,
                                         title = "Settings",
                                         subtitle = "Privacy, notifications, language",
                                         onClick = { }
                                     )
-                                    HorizontalDivider(
-                                        Modifier,
-                                        DividerDefaults.Thickness,
-                                        color = EShopColors.White20
-                                    )
+                                    HorizontalDivider(Modifier, DividerDefaults.Thickness, color = EShopColors.White20)
                                     ProfileMenuItem(
                                         icon = Icons.AutoMirrored.Filled.Help,
                                         title = "Help & Support",
                                         subtitle = "FAQs, contact us, report issue",
                                         onClick = { }
                                     )
-                                    HorizontalDivider(
-                                        Modifier,
-                                        DividerDefaults.Thickness,
-                                        color = EShopColors.White20
-                                    )
+                                    HorizontalDivider(Modifier, DividerDefaults.Thickness, color = EShopColors.White20)
                                     ProfileMenuItem(
                                         icon = Icons.Default.Info,
                                         title = "Terms & Privacy Policy",
                                         subtitle = "Read our terms and conditions",
                                         onClick = { }
                                     )
-                                    HorizontalDivider(
-                                        Modifier,
-                                        DividerDefaults.Thickness,
-                                        color = EShopColors.White20
-                                    )
+                                    HorizontalDivider(Modifier, DividerDefaults.Thickness, color = EShopColors.White20)
                                     ProfileMenuItem(
                                         icon = Icons.Default.Verified,
                                         title = "Student Verification",
                                         subtitle = if (userProfile.isVerified) "Verified ✓" else "Get verified to sell",
                                         onClick = onVerificationClick
                                     )
+                                    HorizontalDivider(Modifier, DividerDefaults.Thickness, color = EShopColors.White20)
+                                    ProfileMenuItem(
+                                        icon = Icons.Default.Bolt,
+                                        title = "Campus Pro",
+                                        subtitle = if (subscription != null && subscription.isActive) {
+                                            "🟡 Active - ${subscription.tierEnum.displayName}"
+                                        } else {
+                                            "Boost your listings & earn more"
+                                        },
+                                        onClick = onSubscriptionClick
+                                    )
                                 }
                             }
                         }
 
-                        // Logout Button
                         item {
                             Button(
                                 onClick = onLogout,
@@ -315,9 +363,7 @@ fun ProfileScreen(
                                     .padding(16.dp)
                                     .height(50.dp),
                                 shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color.Transparent
-                                ),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                                 elevation = ButtonDefaults.buttonElevation(0.dp)
                             ) {
                                 Icon(
@@ -361,10 +407,18 @@ fun ProfileScreen(
         }
     }
 
-    // ========== DELETE CONFIRMATION DIALOG ==========
+    // =========================================================================
+    // 3. DIALOG INPUT HANDLING & VALIDATION (Updated logic with Boolean check)
+    // =========================================================================
     if (showDeleteConfirmation) {
+        var validationErrorMessage by remember { mutableStateOf("") }
+
         AlertDialog(
-            onDismissRequest = { showDeleteConfirmation = false },
+            onDismissRequest = {
+                showDeleteConfirmation = false
+                deleteReason = ""
+                validationErrorMessage = ""
+            },
             title = {
                 Text(
                     text = "Delete Listing",
@@ -374,18 +428,54 @@ fun ProfileScreen(
                 )
             },
             text = {
-                Text(
-                    text = "Are you sure you want to delete this listing? This action cannot be undone.",
-                    fontSize = 14.sp,
-                    color = EShopColors.White50
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Are you sure you want to delete this listing? This action cannot be undone.",
+                        fontSize = 14.sp,
+                        color = EShopColors.White50
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Input processing block
+                    OutlinedTextField(
+                        value = deleteReason,
+                        onValueChange = {
+                            deleteReason = it
+                            // FIX: Checked dynamically via the updated Boolean validator logic
+                            validationErrorMessage = if (validator.isDeletionNotesValid(it)) {
+                                ""
+                            } else {
+                                "Reason must be at least 3 characters"
+                            }
+                        },
+                        label = { Text("Reason for deletion", color = EShopColors.White50) },
+                        isError = validationErrorMessage.isNotEmpty(),
+                        supportingText = {
+                            if (validationErrorMessage.isNotEmpty()) {
+                                Text(text = validationErrorMessage, color = EShopColors.Error)
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = EShopColors.White,
+                            unfocusedTextColor = EShopColors.White50
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.deleteListing(selectedListingToDelete) {
-                            showDeleteConfirmation = false
-                            viewModel.loadProfileData()
+                        // FIX: Directly evaluates clean True/False status instead of buggy strings
+                        if (validator.isDeletionNotesValid(deleteReason)) {
+                            Log.d("EventLogger", "Form Submitted: Deleting Listing $selectedListingToDelete")
+                            viewModel.deleteListing(selectedListingToDelete) {
+                                showDeleteConfirmation = false
+                                deleteReason = ""
+                                viewModel.loadProfileData()
+                            }
+                        } else {
+                            validationErrorMessage = "Please provide a valid reason."
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = EShopColors.Error)
@@ -394,7 +484,11 @@ fun ProfileScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirmation = false }) {
+                TextButton(onClick = {
+                    showDeleteConfirmation = false
+                    deleteReason = ""
+                    validationErrorMessage = ""
+                }) {
                     Text("Cancel", color = EShopColors.Orange)
                 }
             },
@@ -405,23 +499,31 @@ fun ProfileScreen(
 }
 
 @Composable
-fun ProfileHeader(userProfile: UserProfile) {
+fun ProfileHeader(
+    userProfile: UserProfile,
+    subscription: com.example.thikaeshop.data.models.Subscription? = null
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Avatar
         Box(
             modifier = Modifier
                 .size(100.dp)
                 .clip(CircleShape)
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(EShopColors.Orange, EShopColors.Gold)
+                .background(Brush.horizontalGradient(listOf(EShopColors.Orange, EShopColors.Gold)))
+                // ========================================================
+                // 4. LONG PRESS INTERACTION BADGE (From Week 8 Notes)
+                // ========================================================
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onLongPress = {
+                            Log.d("GestureHandler", "Displaying Avatar Context Menu for ID: ${userProfile.studentId}")
+                        }
                     )
-                ),
+                },
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -432,7 +534,6 @@ fun ProfileHeader(userProfile: UserProfile) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Verified Badge
         if (userProfile.isVerified) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -483,9 +584,31 @@ fun ProfileHeader(userProfile: UserProfile) {
             color = EShopColors.Gold
         )
 
+        if (subscription != null && subscription.isActive) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .background(EShopColors.Orange.copy(alpha = 0.15f), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+            ) {
+                Icon(
+                    Icons.Default.Bolt,
+                    contentDescription = "Campus Pro",
+                    tint = EShopColors.Orange,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "⚡ ${subscription.tierEnum.displayName} 🟡 Active",
+                    fontSize = 10.sp,
+                    color = EShopColors.Orange,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(8.dp))
-
-
     }
 }
 

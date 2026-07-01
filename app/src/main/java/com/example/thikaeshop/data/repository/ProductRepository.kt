@@ -6,14 +6,16 @@ import com.example.thikaeshop.data.models.OrderDisplay
 import com.example.thikaeshop.data.models.OrderInsert
 import com.example.thikaeshop.data.models.OrderTrackingData
 import com.example.thikaeshop.data.models.Product
+import com.example.thikaeshop.data.models.Subscription
 import com.example.thikaeshop.data.models.UserProfile
 import com.example.thikaeshop.utils.SupabaseClient
 import com.google.firebase.Timestamp
-import io.github.jan.supabase.postgrest.from
-import io.github.jan.supabase.postgrest.query.Order as PostgrestOrder
 import io.github.jan.supabase.storage.storage
+import io.github.jan.supabase.postgrest.query.Order as PostgrestOrder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 class ProductRepository {
@@ -30,13 +32,9 @@ class ProductRepository {
         get() = auth.currentUser?.phoneNumber ?: ""
 
     // =========================================================
-    // PRODUCT FUNCTIONS
+    // DSA - SORTING ALGORITHMS
     // =========================================================
-    // =========================================================
-// DSA - SORTING ALGORITHMS
-// =========================================================
 
-    // Quick Sort implementation for products by price
     fun quickSortByPrice(products: List<Product>, ascending: Boolean = true): List<Product> {
         if (products.size <= 1) return products
 
@@ -48,7 +46,6 @@ class ProductRepository {
         return quickSortByPrice(left, ascending) + middle + quickSortByPrice(right, ascending)
     }
 
-    // Merge Sort implementation for products by rating
     fun mergeSortByRating(products: List<Product>, ascending: Boolean = true): List<Product> {
         if (products.size <= 1) return products
 
@@ -86,7 +83,6 @@ class ProductRepository {
         return result
     }
 
-    // Binary Search for product by ID (O(log n))
     fun binarySearchById(products: List<Product>, targetId: String): Product? {
         val sorted = products.sortedBy { it.id }
         var left = 0
@@ -105,6 +101,10 @@ class ProductRepository {
         return null
     }
 
+    // =========================================================
+    // PRODUCT FUNCTIONS
+    // =========================================================
+
     suspend fun uploadProductImageBytes(
         imageBytes: ByteArray,
         extension: String = "jpg"
@@ -119,8 +119,7 @@ class ProductRepository {
                 data = imageBytes
             )
 
-        val supabaseUrl =
-            "https://ylzlxqxvlqdzzxuhdjzi.supabase.co"
+        val supabaseUrl = "https://ylzlxqxvlqdzzxuhdjzi.supabase.co"
 
         "$supabaseUrl/storage/v1/object/public/product-images/$fileName"
     }
@@ -138,10 +137,13 @@ class ProductRepository {
         imageExtension: String = "jpg"
     ): Product = withContext(Dispatchers.IO) {
 
-        val imageUrl = uploadProductImageBytes(
-            imageBytes = imageBytes,
-            extension = imageExtension
-        )
+        val imageUrl = uploadProductImageBytes(imageBytes, imageExtension)
+
+        // ★ Check if user has active subscription for visibility boost
+        val boost = if (hasActiveSubscription()) 100 else 0
+        val boostedUntil = if (boost > 0) {
+            Instant.now().plus(30, ChronoUnit.DAYS).toString()
+        } else null
 
         val product = Product(
             id = UUID.randomUUID().toString(),
@@ -158,7 +160,9 @@ class ProductRepository {
             landmark = landmark,
             condition = if (isSecondHand) condition else "",
             isAvailable = true,
-            isFeatured = false
+            isFeatured = false,
+            visibilityBoost = boost,      // ★ NEW
+            boostedUntil = boostedUntil   // ★ NEW
         )
 
         SupabaseClient.database
@@ -172,56 +176,52 @@ class ProductRepository {
         withContext(Dispatchers.IO) {
 
             try {
-
-                SupabaseClient.database
+                val products = SupabaseClient.database
                     .from("products")
                     .select {
                         filter {
                             eq("is_available", true)
                         }
-
-                        order(
-                            column = "created_at",
-                            order = PostgrestOrder.DESCENDING
-                        )
                     }
                     .decodeList<Product>()
 
-            } catch (e: Exception) {
+                // ★ SORT: Boosted products first, then by created date
+                products.sortedWith(
+                    compareByDescending<Product> {
+                        if (it.isBoosted) it.visibilityBoost else 0
+                    }.thenByDescending { it.createdAt }
+                )
 
+            } catch (e: Exception) {
                 e.printStackTrace()
                 emptyList()
             }
         }
 
-    suspend fun getProductsByCategory(
-        category: String
-    ): List<Product> = withContext(Dispatchers.IO) {
+    suspend fun getProductsByCategory(category: String): List<Product> =
+        withContext(Dispatchers.IO) {
 
-        try {
-
-            SupabaseClient.database
-                .from("products")
-                .select {
-                    filter {
-                        eq("category", category)
-                        eq("is_available", true)
+            try {
+                SupabaseClient.database
+                    .from("products")
+                    .select {
+                        filter {
+                            eq("category", category)
+                            eq("is_available", true)
+                        }
                     }
-                }
-                .decodeList<Product>()
+                    .decodeList<Product>()
 
-        } catch (e: Exception) {
-
-            e.printStackTrace()
-            emptyList()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                emptyList()
+            }
         }
-    }
 
     suspend fun getSecondHandProducts(): List<Product> =
         withContext(Dispatchers.IO) {
 
             try {
-
                 SupabaseClient.database
                     .from("products")
                     .select {
@@ -233,7 +233,6 @@ class ProductRepository {
                     .decodeList<Product>()
 
             } catch (e: Exception) {
-
                 e.printStackTrace()
                 emptyList()
             }
@@ -243,7 +242,6 @@ class ProductRepository {
         withContext(Dispatchers.IO) {
 
             try {
-
                 SupabaseClient.database
                     .from("products")
                     .select {
@@ -255,66 +253,47 @@ class ProductRepository {
                     .decodeList<Product>()
 
             } catch (e: Exception) {
-
                 e.printStackTrace()
                 emptyList()
             }
         }
 
-    suspend fun searchProducts(
-        query: String
-    ): List<Product> = withContext(Dispatchers.IO) {
+    suspend fun searchProducts(query: String): List<Product> =
+        withContext(Dispatchers.IO) {
 
-        try {
-
-            if (query.isEmpty()) {
-                return@withContext getAllProducts()
-            }
-
-            getAllProducts().filter { product ->
-
-                product.title.contains(
-                    query,
-                    ignoreCase = true
-                ) ||
-
-                        product.description.contains(
-                            query,
-                            ignoreCase = true
-                        ) ||
-
-                        product.category.contains(
-                            query,
-                            ignoreCase = true
-                        )
-            }
-
-        } catch (e: Exception) {
-
-            e.printStackTrace()
-            emptyList()
-        }
-    }
-
-    suspend fun deleteProduct(
-        productId: String
-    ) = withContext(Dispatchers.IO) {
-
-        try {
-
-            SupabaseClient.database
-                .from("products")
-                .delete {
-                    filter {
-                        eq("id", productId)
-                    }
+            try {
+                if (query.isEmpty()) {
+                    return@withContext getAllProducts()
                 }
 
-        } catch (e: Exception) {
+                getAllProducts().filter { product ->
+                    product.title.contains(query, ignoreCase = true) ||
+                            product.description.contains(query, ignoreCase = true) ||
+                            product.category.contains(query, ignoreCase = true)
+                }
 
-            e.printStackTrace()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                emptyList()
+            }
         }
-    }
+
+    suspend fun deleteProduct(productId: String) =
+        withContext(Dispatchers.IO) {
+
+            try {
+                SupabaseClient.database
+                    .from("products")
+                    .delete {
+                        filter {
+                            eq("id", productId)
+                        }
+                    }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
 
     suspend fun updateProduct(
         productId: String,
@@ -327,7 +306,6 @@ class ProductRepository {
     ) = withContext(Dispatchers.IO) {
 
         try {
-
             SupabaseClient.database
                 .from("products")
                 .update(
@@ -346,30 +324,49 @@ class ProductRepository {
                 }
 
         } catch (e: Exception) {
-
             e.printStackTrace()
         }
     }
 
-    suspend fun getProductById(
-        productId: String
-    ): Product? = withContext(Dispatchers.IO) {
+    suspend fun getProductById(productId: String): Product? =
+        withContext(Dispatchers.IO) {
 
-        try {
+            try {
+                SupabaseClient.database
+                    .from("products")
+                    .select {
+                        filter {
+                            eq("id", productId)
+                        }
+                    }
+                    .decodeSingleOrNull<Product>()
 
-            SupabaseClient.database
-                .from("products")
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
+
+    // =========================================================
+    // SUBSCRIPTION HELPER
+    // =========================================================
+
+    private suspend fun hasActiveSubscription(): Boolean {
+        return try {
+            val sub = SupabaseClient.database
+                .from("subscriptions")
                 .select {
                     filter {
-                        eq("id", productId)
+                        eq("user_id", currentUserId)
+                        eq("status", "active")
                     }
                 }
-                .decodeSingleOrNull<Product>()
+                .decodeList<Subscription>()
+                .firstOrNull()
 
+            sub != null && sub.isActive && sub.tier != "free"
         } catch (e: Exception) {
-
-            e.printStackTrace()
-            null
+            false
         }
     }
 
@@ -377,43 +374,37 @@ class ProductRepository {
     // USER PROFILE FUNCTIONS
     // =========================================================
 
-    suspend fun getUserProfile(
-        userId: String
-    ): UserProfile? = withContext(Dispatchers.IO) {
+    suspend fun getUserProfile(userId: String): UserProfile? =
+        withContext(Dispatchers.IO) {
 
-        try {
-
-            SupabaseClient.database
-                .from("users")
-                .select {
-                    filter {
-                        eq("id", userId)
+            try {
+                SupabaseClient.database
+                    .from("users")
+                    .select {
+                        filter {
+                            eq("id", userId)
+                        }
                     }
-                }
-                .decodeSingleOrNull<UserProfile>()
+                    .decodeSingleOrNull<UserProfile>()
 
-        } catch (e: Exception) {
-
-            e.printStackTrace()
-            null
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
         }
-    }
 
-    suspend fun saveUserProfile(
-        userProfile: UserProfile
-    ) = withContext(Dispatchers.IO) {
+    suspend fun saveUserProfile(userProfile: UserProfile) =
+        withContext(Dispatchers.IO) {
 
-        try {
+            try {
+                SupabaseClient.database
+                    .from("users")
+                    .upsert(userProfile)
 
-            SupabaseClient.database
-                .from("users")
-                .upsert(userProfile)
-
-        } catch (e: Exception) {
-
-            e.printStackTrace()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
-    }
 
     suspend fun updateUserProfile(
         userId: String,
@@ -423,7 +414,6 @@ class ProductRepository {
     ) = withContext(Dispatchers.IO) {
 
         try {
-
             SupabaseClient.database
                 .from("users")
                 .update(
@@ -439,7 +429,6 @@ class ProductRepository {
                 }
 
         } catch (e: Exception) {
-
             e.printStackTrace()
         }
     }
@@ -448,53 +437,47 @@ class ProductRepository {
     // ADMIN FUNCTIONS
     // =========================================================
 
-    suspend fun promoteToFeatured(
-        productId: String
-    ) = withContext(Dispatchers.IO) {
+    suspend fun promoteToFeatured(productId: String) =
+        withContext(Dispatchers.IO) {
 
-        try {
-
-            SupabaseClient.database
-                .from("products")
-                .update(
-                    {
-                        set("is_featured", true)
+            try {
+                SupabaseClient.database
+                    .from("products")
+                    .update(
+                        {
+                            set("is_featured", true)
+                        }
+                    ) {
+                        filter {
+                            eq("id", productId)
+                        }
                     }
-                ) {
-                    filter {
-                        eq("id", productId)
-                    }
-                }
 
-        } catch (e: Exception) {
-
-            e.printStackTrace()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
-    }
 
-    suspend fun removeProduct(
-        productId: String
-    ) = withContext(Dispatchers.IO) {
+    suspend fun removeProduct(productId: String) =
+        withContext(Dispatchers.IO) {
 
-        try {
-
-            SupabaseClient.database
-                .from("products")
-                .update(
-                    {
-                        set("is_available", false)
+            try {
+                SupabaseClient.database
+                    .from("products")
+                    .update(
+                        {
+                            set("is_available", false)
+                        }
+                    ) {
+                        filter {
+                            eq("id", productId)
+                        }
                     }
-                ) {
-                    filter {
-                        eq("id", productId)
-                    }
-                }
 
-        } catch (e: Exception) {
-
-            e.printStackTrace()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
-    }
 
     // =========================================================
     // ORDER FUNCTIONS
@@ -517,7 +500,6 @@ class ProductRepository {
     ): String = withContext(Dispatchers.IO) {
 
         try {
-
             val orderId = UUID.randomUUID().toString()
 
             val order = OrderInsert(
@@ -546,10 +528,8 @@ class ProductRepository {
             orderId
 
         } catch (e: Exception) {
-
             println("SAVE ORDER ERROR")
             e.printStackTrace()
-
             throw e
         }
     }
@@ -558,78 +538,64 @@ class ProductRepository {
         withContext(Dispatchers.IO) {
 
             try {
-
                 SupabaseClient.database
                     .from("orders")
                     .select {
-
                         filter {
                             or {
                                 eq("buyer_id", currentUserId)
                                 eq("seller_id", currentUserId)
                             }
                         }
-
-                        order(
-                            column = "created_at",
-                            order = PostgrestOrder.DESCENDING
-                        )
+                        order("created_at", PostgrestOrder.DESCENDING)
                     }
                     .decodeList<OrderDisplay>()
 
             } catch (e: Exception) {
-
                 e.printStackTrace()
                 emptyList()
             }
         }
 
-    suspend fun getOrderById(
-        orderId: String
-    ): OrderTrackingData? = withContext(Dispatchers.IO) {
+    suspend fun getOrderById(orderId: String): OrderTrackingData? =
+        withContext(Dispatchers.IO) {
 
-        try {
-
-            SupabaseClient.database
-                .from("orders")
-                .select {
-                    filter {
-                        eq("id", orderId)
+            try {
+                SupabaseClient.database
+                    .from("orders")
+                    .select {
+                        filter {
+                            eq("id", orderId)
+                        }
                     }
-                }
-                .decodeSingleOrNull<OrderTrackingData>()
+                    .decodeSingleOrNull<OrderTrackingData>()
 
-        } catch (e: Exception) {
-
-            e.printStackTrace()
-            null
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
         }
-    }
 
-    suspend fun updateOrderStatus(
-        orderId: String,
-        status: String
-    ) = withContext(Dispatchers.IO) {
+    suspend fun updateOrderStatus(orderId: String, status: String) =
+        withContext(Dispatchers.IO) {
 
-        try {
-
-            SupabaseClient.database
-                .from("orders")
-                .update(
-                    {
-                        set("status", status)
+            try {
+                SupabaseClient.database
+                    .from("orders")
+                    .update(
+                        {
+                            set("status", status)
+                        }
+                    ) {
+                        filter {
+                            eq("id", orderId)
+                        }
                     }
-                ) {
-                    filter {
-                        eq("id", orderId)
-                    }
-                }
 
-        } catch (e: Exception) {
-
-            e.printStackTrace()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
-    }
 
     // =========================================================
     // REVIEW FUNCTIONS
@@ -643,7 +609,6 @@ class ProductRepository {
     ) = withContext(Dispatchers.IO) {
 
         try {
-
             val review = mapOf(
                 "id" to UUID.randomUUID().toString(),
                 "order_id" to orderId,
@@ -658,117 +623,111 @@ class ProductRepository {
                 .insert(review)
 
         } catch (e: Exception) {
-
             e.printStackTrace()
         }
     }
-    // Track when user views a product
-    suspend fun trackProductView(userId: String, productId: String) = withContext(Dispatchers.IO) {
-        try {
-            SupabaseClient.database.from("product_views").insert(
-                mapOf(
-                    "user_id" to userId,
-                    "product_id" to productId,
-                    "viewed_at" to Timestamp.now()
+
+    // =========================================================
+    // AI RECOMMENDATIONS FUNCTIONS
+    // =========================================================
+
+    suspend fun trackProductView(userId: String, productId: String) =
+        withContext(Dispatchers.IO) {
+            try {
+                SupabaseClient.database.from("product_views").insert(
+                    mapOf(
+                        "user_id" to userId,
+                        "product_id" to productId,
+                        "viewed_at" to Timestamp.now()
+                    )
                 )
-            )
-        } catch (e: Exception) {
-            // Silently fail - don't break the app for tracking
-            Log.e("ProductRepo", "Failed to track view: ${e.message}")
+            } catch (e: Exception) {
+                Log.e("ProductRepo", "Failed to track view: ${e.message}")
+            }
         }
-    }
 
-    // Track when user clicks/purchases
-    suspend fun trackInteraction(userId: String, productId: String, type: String) = withContext(Dispatchers.IO) {
-        try {
-            SupabaseClient.database.from("user_interactions").insert(
-                mapOf(
-                    "user_id" to userId,
-                    "product_id" to productId,
-                    "interaction_type" to type,
-                    "created_at" to Timestamp.now()
+    suspend fun trackInteraction(userId: String, productId: String, type: String) =
+        withContext(Dispatchers.IO) {
+            try {
+                SupabaseClient.database.from("user_interactions").insert(
+                    mapOf(
+                        "user_id" to userId,
+                        "product_id" to productId,
+                        "interaction_type" to type,
+                        "created_at" to Timestamp.now()
+                    )
                 )
-            )
-        } catch (e: Exception) {
-            Log.e("ProductRepo", "Failed to track interaction: ${e.message}")
+            } catch (e: Exception) {
+                Log.e("ProductRepo", "Failed to track interaction: ${e.message}")
+            }
         }
-    }
 
-    // Get personalized recommendations for a user
-    suspend fun getRecommendationsForUser(userId: String, limit: Int = 10): List<Product> = withContext(Dispatchers.IO) {
-        try {
-            // Get product IDs that the user has viewed/purchased
-            val userInteractions = SupabaseClient.database.from("user_interactions")
-                .select {
-                    filter { eq("user_id", userId) }
+    suspend fun getRecommendationsForUser(userId: String, limit: Int = 10): List<Product> =
+        withContext(Dispatchers.IO) {
+            try {
+                val userInteractions = SupabaseClient.database.from("user_interactions")
+                    .select {
+                        filter { eq("user_id", userId) }
+                    }
+                    .decodeList<Map<String, Any>>()
+
+                val userProductIds = userInteractions
+                    .mapNotNull { it["product_id"] as? String }
+                    .distinct()
+
+                if (userProductIds.isEmpty()) {
+                    return@withContext getPopularProducts(limit)
                 }
-                .decodeList<Map<String, Any>>()
 
-            val userProductIds = userInteractions
-                .mapNotNull { it["product_id"] as? String }
-                .distinct()
+                val allProducts = getAllProducts()
+                val userProducts = allProducts.filter { it.id in userProductIds }
+                val categories = userProducts.map { it.category }.distinct()
 
-            if (userProductIds.isEmpty()) {
-                // No history - return popular products
-                return@withContext getPopularProducts(limit)
+                if (categories.isEmpty()) {
+                    return@withContext getPopularProducts(limit)
+                }
+
+                val recommendations = allProducts.filter { product ->
+                    product.category in categories &&
+                            product.id !in userProductIds &&
+                            product.isAvailable
+                }
+
+                recommendations.take(limit)
+            } catch (e: Exception) {
+                Log.e("ProductRepo", "Failed to get recommendations: ${e.message}")
+                getPopularProducts(limit)
             }
-
-            // Get products from same categories as user's history
-            val allProducts = getAllProducts()
-            val userProducts = allProducts.filter { it.id in userProductIds }
-            val categories = userProducts.map { it.category }.distinct()
-
-            if (categories.isEmpty()) {
-                return@withContext getPopularProducts(limit)
-            }
-
-            // Recommend products in same categories (excluding already viewed/purchased)
-            val recommendations = allProducts.filter { product ->
-                product.category in categories &&
-                        product.id !in userProductIds &&
-                        product.isAvailable
-            }
-
-            recommendations.take(limit)
-        } catch (e: Exception) {
-            Log.e("ProductRepo", "Failed to get recommendations: ${e.message}")
-            getPopularProducts(limit)
         }
-    }
-    // Get popular products (fallback when no user history)
-    // Get popular products (fallback when no user history)
-    suspend fun getPopularProducts(limit: Int = 10): List<Product> = withContext(Dispatchers.IO) {
-        try {
-            // Get most viewed products - using simpler approach
-            val views = SupabaseClient.database.from("product_views")
-                .select {
-                    filter { }
+
+    suspend fun getPopularProducts(limit: Int = 10): List<Product> =
+        withContext(Dispatchers.IO) {
+            try {
+                val views = SupabaseClient.database.from("product_views")
+                    .select()
+                    .decodeList<Map<String, Any>>()
+
+                val viewCounts = mutableMapOf<String, Int>()
+                views.forEach { view ->
+                    val productId = view["product_id"] as? String
+                    if (productId != null) {
+                        viewCounts[productId] = (viewCounts[productId] ?: 0) + 1
+                    }
                 }
-                .decodeList<Map<String, Any>>()
 
-            // Count views per product
-            val viewCounts = mutableMapOf<String, Int>()
-            views.forEach { view ->
-                val productId = view["product_id"] as? String
-                if (productId != null) {
-                    viewCounts[productId] = (viewCounts[productId] ?: 0) + 1
+                val popularIds = viewCounts.toList()
+                    .sortedByDescending { it.second }
+                    .take(limit)
+                    .map { it.first }
+
+                if (popularIds.isEmpty()) {
+                    return@withContext getAllProducts().take(limit)
                 }
+
+                getAllProducts().filter { it.id in popularIds }.take(limit)
+            } catch (e: Exception) {
+                Log.e("ProductRepo", "Failed to get popular products: ${e.message}")
+                getAllProducts().take(limit)
             }
-
-            // Sort by view count and get top products
-            val popularIds = viewCounts.toList()
-                .sortedByDescending { it.second }
-                .take(limit)
-                .map { it.first }
-
-            if (popularIds.isEmpty()) {
-                return@withContext getAllProducts().take(limit)
-            }
-
-            getAllProducts().filter { it.id in popularIds }.take(limit)
-        } catch (e: Exception) {
-            Log.e("ProductRepo", "Failed to get popular products: ${e.message}")
-            getAllProducts().take(limit)
         }
-    }
 }

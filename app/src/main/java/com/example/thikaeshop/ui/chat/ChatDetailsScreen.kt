@@ -1,5 +1,6 @@
 package com.example.thikaeshop.ui.chat
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -8,8 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,9 +20,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.thikaeshop.data.models.ChatMessage
+import com.example.thikaeshop.ui.components.SafetyWarningDialog
 import com.example.thikaeshop.ui.theme.EShopColors
 import com.example.thikaeshop.ui.viewmodels.ChatUiState
 import com.example.thikaeshop.ui.viewmodels.ChatViewModel
+import com.example.thikaeshop.ui.viewmodels.MessageSendState
 import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.*
@@ -32,15 +34,51 @@ import java.util.*
 fun ChatDetailScreen(
     chatId: String,
     receiverName: String,
+    sellerId: String,  // ← UPDATED: Added sellerId parameter
     onBackClick: () -> Unit = {},
     viewModel: ChatViewModel = viewModel()
 ) {
     var messageText by remember { mutableStateOf("") }
     val messages by viewModel.messages.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
+    val messageSendState by viewModel.messageSendState.collectAsState()
+
+    // Track if warning dialog should be shown
+    var showWarningDialog by remember { mutableStateOf(false) }
+    var pendingSuspiciousMessage by remember { mutableStateOf("") }
+    var pendingDetectionResult by remember { mutableStateOf<com.example.thikaeshop.utils.DetectionResult?>(null) }
+
+    // ====== DETERMINE USER ROLE ======
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
+    // If current user is the seller, role is SELLER, otherwise BUYER
+    val userRole = if (currentUserId == sellerId) {
+        Log.d("ChatDetailScreen", "🔵 User is SELLER")
+        "SELLER"
+    } else {
+        Log.d("ChatDetailScreen", "🔵 User is BUYER")
+        "BUYER"
+    }
 
     LaunchedEffect(chatId) {
         viewModel.loadMessages(chatId)
+    }
+
+    // Handle AI detection results
+    LaunchedEffect(messageSendState) {
+        when (val state = messageSendState) {
+            is MessageSendState.Suspicious -> {
+                // Show warning dialog
+                pendingSuspiciousMessage = state.message
+                pendingDetectionResult = state.detectionResult
+                showWarningDialog = true
+            }
+            is MessageSendState.Safe -> {
+                // Message was sent safely, clear input
+                messageText = ""
+            }
+            else -> { /* Idle state - do nothing */ }
+        }
     }
 
     Scaffold(
@@ -61,7 +99,30 @@ fun ChatDetailScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = EShopColors.DarkBg
-                )
+                ),
+                actions = {
+                    // Show role badge
+                    Surface(
+                        color = EShopColors.Orange.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.padding(end = 4.dp)
+                    ) {
+                        Text(
+                            text = userRole,
+                            color = EShopColors.Orange,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.Shield,
+                        contentDescription = "Protected Chat",
+                        tint = EShopColors.Orange,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
             )
         }
     ) { paddingValues ->
@@ -71,6 +132,35 @@ fun ChatDetailScreen(
                 .background(Brush.verticalGradient(listOf(EShopColors.DarkBg, EShopColors.DarkCard)))
                 .padding(paddingValues)
         ) {
+            // ====== Safety banner at top of chat ======
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = EShopColors.Orange.copy(alpha = 0.15f),
+                shape = RoundedCornerShape(0.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Shield,
+                        contentDescription = "Safety",
+                        tint = EShopColors.Orange,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "🔒 Protected chat - Keep transactions on platform",
+                        fontSize = 11.sp,
+                        color = EShopColors.White70,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
             // Messages List
             LazyColumn(
                 modifier = Modifier
@@ -113,39 +203,86 @@ fun ChatDetailScreen(
             }
 
             // Message Input
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedTextField(
-                    value = messageText,
-                    onValueChange = { messageText = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Type a message...", color = EShopColors.White50) },
-                    shape = RoundedCornerShape(24.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = EShopColors.Orange,
-                        unfocusedBorderColor = EShopColors.White30,
-                        focusedTextColor = EShopColors.White,
-                        unfocusedTextColor = EShopColors.White
-                    )
-                )
+            MessageInputRow(
+                messageText = messageText,
+                onMessageChange = { messageText = it },
+                onSendClick = {
+                    if (messageText.isNotBlank()) {
+                        viewModel.sendMessage(chatId, messageText, userRole)  // ← PASS role
+                    }
+                },
+                isLoading = uiState is ChatUiState.Loading
+            )
+        }
+    }
 
-                FloatingActionButton(
-                    onClick = {
-                        if (messageText.isNotBlank()) {
-                            viewModel.sendMessage(chatId, messageText)
-                            messageText = ""
-                        }
-                    },
-                    containerColor = EShopColors.Orange,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = EShopColors.White)
-                }
+    // Safety Warning Dialog
+    if (showWarningDialog && pendingDetectionResult != null) {
+        SafetyWarningDialog(
+            onDismiss = {
+                showWarningDialog = false
+                pendingSuspiciousMessage = ""
+                pendingDetectionResult = null
+                viewModel.resetMessageSendState()
+            },
+            onSendAnyway = {
+                viewModel.sendMessageAfterWarning(chatId, pendingSuspiciousMessage)
+                showWarningDialog = false
+                pendingSuspiciousMessage = ""
+                pendingDetectionResult = null
+            },
+            detectionResult = pendingDetectionResult!!,
+            userRole = userRole  // ← PASS role
+        )
+    }
+}
+
+@Composable
+fun MessageInputRow(
+    messageText: String,
+    onMessageChange: (String) -> Unit,
+    onSendClick: () -> Unit,
+    isLoading: Boolean
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        OutlinedTextField(
+            value = messageText,
+            onValueChange = onMessageChange,
+            modifier = Modifier.weight(1f),
+            placeholder = { Text("Type a message...", color = EShopColors.White50) },
+            shape = RoundedCornerShape(24.dp),
+            enabled = !isLoading,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = EShopColors.Orange,
+                unfocusedBorderColor = EShopColors.White30,
+                focusedTextColor = EShopColors.White,
+                unfocusedTextColor = EShopColors.White
+            )
+        )
+
+        FloatingActionButton(
+            onClick = onSendClick,
+            containerColor = EShopColors.Orange,
+            modifier = Modifier.size(48.dp),
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    color = EShopColors.White,
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Icon(
+                    Icons.AutoMirrored.Filled.Send,
+                    contentDescription = "Send",
+                    tint = EShopColors.White
+                )
             }
         }
     }

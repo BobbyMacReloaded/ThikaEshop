@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.thikaeshop.data.models.Product
 import com.example.thikaeshop.data.models.LandmarkItem
+import com.example.thikaeshop.data.models.Subscription
 import com.example.thikaeshop.data.models.UserProfile
 import com.example.thikaeshop.data.repository.ProductRepository
+import com.example.thikaeshop.data.repository.SubscriptionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -17,7 +19,8 @@ sealed class ProfileUiState {
     data class Success(
         val userProfile: UserProfile,
         val myListings: List<Product>,
-        val savedLandmarks: List<LandmarkItem>
+        val savedLandmarks: List<LandmarkItem>,
+        val subscription: Subscription? = null  // ← ADDED
     ) : ProfileUiState()
     data class Error(val message: String) : ProfileUiState()
 }
@@ -25,22 +28,28 @@ sealed class ProfileUiState {
 class ProfileViewModel : ViewModel() {
 
     private val repository = ProductRepository()
+    private val subscriptionRepository = SubscriptionRepository()  // ← ADDED
 
     private val _uiState = MutableStateFlow<ProfileUiState>(ProfileUiState.Loading)
     val uiState: StateFlow<ProfileUiState> = _uiState
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
+    private var isLoading = false
 
     init {
         loadProfileData()
     }
+
     fun clearData() {
         _uiState.value = ProfileUiState.Loading
         _error.value = null
     }
+
     fun loadProfileData() {
+        if (isLoading) return
         viewModelScope.launch {
+            isLoading = true
             _uiState.value = ProfileUiState.Loading
             try {
                 val currentUserId = repository.currentUserId
@@ -79,13 +88,19 @@ class ProfileViewModel : ViewModel() {
                     totalSpent = totalValue
                 )
 
+                // Get subscription status
+                val subscription = subscriptionRepository.getMySubscription()
+
                 _uiState.value = ProfileUiState.Success(
                     userProfile = updatedProfile,
                     myListings = userProducts,
-                    savedLandmarks = emptyList()
+                    savedLandmarks = emptyList(),
+                    subscription = if (subscription.isActive && subscription.tier != "free") subscription else null
                 )
             } catch (e: Exception) {
                 _uiState.value = ProfileUiState.Error(e.message ?: "Failed to load profile")
+            } finally {
+                isLoading = false
             }
         }
     }

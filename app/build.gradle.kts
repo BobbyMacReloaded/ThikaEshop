@@ -92,6 +92,12 @@ dependencies {
         // Kotlin Coroutines (you likely already have this)
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+        // Use the BOM to manage all ML Kit versions
+        implementation("com.google.mlkit:entity-extraction:16.0.0-beta6")
+
+        // language-id IS part of mlkit-bom, but to avoid the phantom 16.1.0 conflict,
+        // pin it explicitly too rather than relying on the BOM for now
+        implementation("com.google.mlkit:language-id:17.0.6")
     }
 
 

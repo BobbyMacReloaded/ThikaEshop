@@ -2,6 +2,7 @@ package com.example.thikaeshop.data.models
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.time.Instant
 
 @Serializable
 data class Product(
@@ -40,5 +41,26 @@ data class Product(
     val isAvailable: Boolean = true,
 
     @SerialName("is_featured")
-    val isFeatured: Boolean = false
-)
+    val isFeatured: Boolean = false,
+
+    // ============================================================
+    // ★ ADD THESE TWO FIELDS FOR VISIBILITY BOOST
+    // ============================================================
+    @SerialName("visibility_boost")
+    val visibilityBoost: Int = 0,
+
+    @SerialName("boosted_until")
+    val boostedUntil: String? = null
+) {
+    // Check if the product is currently boosted
+    val isBoosted: Boolean
+        get() {
+            if (visibilityBoost <= 0) return false
+            val until = boostedUntil ?: return false
+            return try {
+                Instant.parse(until).isAfter(Instant.now())
+            } catch (e: Exception) {
+                false
+            }
+        }
+}

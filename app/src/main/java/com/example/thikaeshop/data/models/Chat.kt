@@ -15,6 +15,7 @@ data class ChatRoom(
     @DocumentId
     val chatId: String = "",
     val participants: List<String> = emptyList(),
+    val participantNames: Map<String, String> = emptyMap(),
     val lastMessage: String = "",
     val lastMessageTime: Timestamp? = null,
     val unreadCount: Map<String, Int> = emptyMap()
@@ -29,7 +30,6 @@ data class ChatMessage(
     val isRead: Boolean = false
 )
 
-// For UI display
 data class ChatPreview(
     val chatId: String,
     val otherUserId: String,

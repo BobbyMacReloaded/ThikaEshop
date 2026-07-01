@@ -37,6 +37,7 @@ import com.example.thikaeshop.ui.viewmodels.SellViewModel
 fun SellScreen(
     onBackClick: () -> Unit = {},
     onSubmit: () -> Unit = {},
+    onNavigateToSubscription: () -> Unit = {},  // ← ADD THIS
     viewModel: SellViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -100,6 +101,56 @@ fun SellScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
+            // ============================================================
+            // ★ VISIBILITY BOOST BANNER - WITH NAVIGATION
+            // ============================================================
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = EShopColors.Orange.copy(alpha = 0.15f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Bolt,
+                        contentDescription = null,
+                        tint = EShopColors.Orange,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "⚡ Get 3x More Visibility!",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = EShopColors.White
+                        )
+                        Text(
+                            text = "Upgrade to Campus Pro for boosted listings",
+                            fontSize = 11.sp,
+                            color = EShopColors.White60
+                        )
+                    }
+                    Text(
+                        text = "Learn More",
+                        fontSize = 12.sp,
+                        color = EShopColors.Orange,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.clickable {
+                            onNavigateToSubscription()
+                        }
+                    )
+                }
+            }
+
             // Image Upload Section
             Card(
                 modifier = Modifier

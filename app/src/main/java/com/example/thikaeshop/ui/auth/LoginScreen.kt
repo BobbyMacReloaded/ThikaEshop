@@ -2,6 +2,7 @@ package com.example.thikaeshop.ui.auth
 
 import android.app.Activity
 import android.content.Context
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -77,6 +78,8 @@ fun LoginScreen(
     }
 
     // Google Sign-In handler
+    // In LoginScreen.kt, update the Google Sign-In handler:
+
     val googleSignIn = {
         scope.launch {
             try {
@@ -106,6 +109,7 @@ fun LoginScreen(
                     Toast.LENGTH_SHORT
                 ).show()
 
+                // Use addOnCompleteListener with proper handling
                 FirebaseAuth.getInstance().signInWithCredential(firebaseCredential)
                     .addOnCompleteListener { task ->
                         if (task.isSuccessful) {
@@ -114,13 +118,18 @@ fun LoginScreen(
                                 "Sign in successful!",
                                 Toast.LENGTH_SHORT
                             ).show()
-                            onLoginSuccess()
+                            // Add a small delay to ensure Firebase auth state is updated
+                            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                onLoginSuccess()
+                            }, 500)
                         } else {
+                            val errorMessage = task.exception?.message ?: "Sign in failed"
                             Toast.makeText(
                                 context,
-                                "Sign in failed: ${task.exception?.message}",
+                                "Sign in failed: $errorMessage",
                                 Toast.LENGTH_LONG
                             ).show()
+                            Log.e("GoogleSignIn", "Error: ${task.exception}")
                         }
                     }
             } catch (e: GetCredentialException) {

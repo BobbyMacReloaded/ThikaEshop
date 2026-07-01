@@ -41,6 +41,7 @@ object EShopColors {
     val OrangeDark = Color(0xFFE85D04)
     val Gold = Color(0xFFFFD700)
     val GoldLight = Color(0xFFFFE44D)
+    val White70 = Color.White.copy(alpha = 0.7f)
 
     // Background Colors
     val DarkBg = Color(0xFF0F0F1A)

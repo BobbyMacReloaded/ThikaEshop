@@ -76,7 +76,6 @@ fun ProductCard(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                     loading = {
-                        // Orange placeholder while loading
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -88,7 +87,6 @@ fun ProductCard(
                         )
                     },
                     error = {
-                        // Show icon if image fails to load
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -109,11 +107,43 @@ fun ProductCard(
                     }
                 )
 
-                // Second-hand badge on top of image
-                if (product.isSecondHand) {
+                // ============================================================
+                // ★ BOOSTED BADGE (appears on top of image)
+                // ============================================================
+                if (product.isBoosted) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopStart)
+                            .padding(4.dp)
+                            .background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(EShopColors.Orange, EShopColors.Gold)
+                                ),
+                                RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "⚡",
+                                fontSize = 10.sp
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Boosted",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = EShopColors.White
+                            )
+                        }
+                    }
+                }
+
+                // Second-hand badge (opposite corner)
+                if (product.isSecondHand) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
                             .padding(4.dp)
                             .background(EShopColors.Gold, RoundedCornerShape(8.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp)

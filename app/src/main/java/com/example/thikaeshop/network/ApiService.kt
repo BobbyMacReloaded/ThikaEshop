@@ -20,16 +20,20 @@ data class PaymentResponse(
     val tracking_id: String? = null,
     val success: Boolean? = null,
     val error: String? = null,
-    val message: String? = null
+    val message: String? = null,
+    val simulated: Boolean? = null,
+    val always_active: Boolean? = null
 )
 data class PaymentStatusResponse(
     val orderId: String,
     val status: String, // "pending", "success", "failed"
     val tracking_id: String? = null,
+    val always_active: Boolean? = null,
     val mpesa_receipt: String? = null
 )
+
 object PaymentApiClient {
-    private const val BASE_URL = "https://thikaeshop-3.onrender.com/"
+    private const val BASE_URL = "https://mpesa-backend-q32d.onrender.com/"
 
     val instance: PaymentApiService by lazy {
         val retrofit = Retrofit.Builder()
